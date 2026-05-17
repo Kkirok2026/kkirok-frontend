@@ -57,7 +57,7 @@ export default function CalendarModal({ open, selectedDate, onSelect, onClose })
   };
 
   return (
-    <div className="absolute inset-0 z-50 flex items-end justify-center bg-black/25 px-[24px] pb-[112px]">
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/25 px-[24px] pb-[112px]">
       <section className="w-full max-w-[382px] rounded-[18px] bg-white px-[22px] py-[20px] shadow-[0_18px_34px_rgba(0,0,0,0.18)]">
         <div className="flex items-center justify-between">
           <button

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import MobileLayout from "../components/layout/MobileLayout";
 import KkirokLogo from "../components/common/KkirokLogo";
@@ -9,6 +9,8 @@ import { getDailySummary, getMealLogsByDate } from "../api/mealLogApi";
 import {
   MEAL_KEY_TO_TYPE,
   emptyMeals,
+  formatDateKey,
+  parseDateKey,
   toDailyDisplay,
 } from "../utils/mealData";
 
@@ -22,10 +24,7 @@ const MACRO_COLORS = {
 const today = new Date();
 
 function getDateKey(date) {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return formatDateKey(date);
 }
 
 function getMonthLabel(date) {
@@ -35,12 +34,28 @@ function getMonthLabel(date) {
   });
 }
 
-function getDaysInMonth(date) {
-  return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-}
-
 function getDayName(date) {
   return date.toLocaleString("en-US", { weekday: "short" }).slice(0, 3);
+}
+
+function addDays(date, days) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+}
+
+function getMondayOfWeek(date) {
+  const day = date.getDay();
+  const offset = day === 0 ? -6 : 1 - day;
+
+  return addDays(date, offset);
+}
+
+function addMonths(date, months) {
+  const year = date.getFullYear();
+  const month = date.getMonth() + months;
+  const day = date.getDate();
+  const lastDay = new Date(year, month + 1, 0).getDate();
+
+  return new Date(year, month, Math.min(day, lastDay));
 }
 
 function DateCarousel({
@@ -48,71 +63,36 @@ function DateCarousel({
   onOpenCalendar,
   currentMonth,
   onChangeMonth,
+  onSelectDate,
 }) {
-  const scrollRef = useRef(null);
-  const daysInMonth = getDaysInMonth(currentMonth);
-
-  const days = useMemo(() => {
-    return Array.from({ length: daysInMonth }, (_, index) => {
-      return new Date(
-        currentMonth.getFullYear(),
-        currentMonth.getMonth(),
-        index + 1
-      );
-    });
-  }, [currentMonth, daysInMonth]);
-
-  useEffect(() => {
-    const selectedDay = selectedDate.getDate();
-    const container = scrollRef.current;
-
-    if (!container) return;
-
-    const cardWidth = 58;
-    container.scrollTo({
-      left: Math.max(0, (selectedDay - 3) * cardWidth),
-      behavior: "smooth",
-    });
-  }, [selectedDate, currentMonth]);
-
-  const goPrevMonth = () => {
-    const nextMonth = new Date(
-      currentMonth.getFullYear(),
-      currentMonth.getMonth() - 1,
-      1
-    );
-
-    onChangeMonth(nextMonth);
-  };
-
-  const goNextMonth = () => {
-    const nextMonth = new Date(
-      currentMonth.getFullYear(),
-      currentMonth.getMonth() + 1,
-      1
-    );
-
-    onChangeMonth(nextMonth);
-  };
+  const weekStart = useMemo(() => getMondayOfWeek(selectedDate), [selectedDate]);
+  const days = useMemo(
+    () => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)),
+    [weekStart]
+  );
 
   return (
     <section className="mt-[44px]">
       <div className="flex items-center justify-center gap-[26px]">
         <button
           type="button"
-          onClick={goPrevMonth}
+          onClick={() => onChangeMonth(-1)}
           className="text-[26px] leading-none font-light text-[#a0a0a0]"
         >
           ‹
         </button>
 
-        <p className="text-[13px] font-light text-[#9a9a9a] tracking-[-0.02em]">
+        <button
+          type="button"
+          onClick={onOpenCalendar}
+          className="text-[13px] font-light text-[#9a9a9a] tracking-[-0.02em]"
+        >
           {getMonthLabel(currentMonth)}
-        </p>
+        </button>
 
         <button
           type="button"
-          onClick={goNextMonth}
+          onClick={() => onChangeMonth(1)}
           className="text-[26px] leading-none font-light text-[#a0a0a0]"
         >
           ›
@@ -120,11 +100,7 @@ function DateCarousel({
       </div>
 
       <div
-        ref={scrollRef}
-        className="mt-[16px] flex gap-[12px] overflow-x-auto px-[36px]"
-        style={{
-          scrollbarWidth: "none",
-        }}
+        className="mt-[16px] grid grid-cols-7 gap-[8px] px-[22px]"
       >
         {days.map((date) => {
           const selected = getDateKey(date) === getDateKey(selectedDate);
@@ -133,8 +109,8 @@ function DateCarousel({
             <button
               key={getDateKey(date)}
               type="button"
-              onClick={() => onOpenCalendar(date)}
-              className="shrink-0 w-[46px] h-[62px] rounded-[7px] border flex flex-col items-center justify-center transition"
+              onClick={() => onSelectDate(date)}
+              className="h-[62px] min-w-0 rounded-[7px] border flex flex-col items-center justify-center transition"
               style={{
                 backgroundColor: selected ? "#9bb314" : "#f8f8f8",
                 borderColor: selected ? "#9bb314" : "#d1d1d1",
@@ -454,15 +430,39 @@ function MealRecords({ dailyData, selectedDateKey }) {
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const [currentMonth, setCurrentMonth] = useState(
-    new Date(today.getFullYear(), today.getMonth(), 1)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedDate, setSelectedDate] = useState(
+    () => parseDateKey(searchParams.get("date")) || today
   );
-  const [selectedDate, setSelectedDate] = useState(today);
   const selectedKey = getDateKey(selectedDate);
+  const currentMonth = useMemo(
+    () => new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1),
+    [selectedDate]
+  );
   const [dailyData, setDailyData] = useState(null);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const updateSelectedDate = (date, options = {}) => {
+    setSelectedDate(date);
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set("date", getDateKey(date));
+        return next;
+      },
+      { replace: options.replace ?? false }
+    );
+  };
+
+  useEffect(() => {
+    const queryDate = parseDateKey(searchParams.get("date"));
+
+    if (queryDate && getDateKey(queryDate) !== selectedKey) {
+      setSelectedDate(queryDate);
+    }
+  }, [searchParams, selectedKey]);
 
   useEffect(() => {
     let ignore = false;
@@ -501,26 +501,15 @@ export default function HomePage() {
     };
   }, [navigate, selectedKey]);
 
-  const handleChangeMonth = (nextMonth) => {
-    setCurrentMonth(nextMonth);
-
-    const nextDate = new Date(
-      nextMonth.getFullYear(),
-      nextMonth.getMonth(),
-      1
-    );
-
-    setSelectedDate(nextDate);
+  const handleChangeMonth = (offset) => {
+    updateSelectedDate(addMonths(selectedDate, offset));
   };
 
   const handleSelectDate = (date) => {
-    setSelectedDate(date);
-    setCurrentMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+    updateSelectedDate(date);
   };
 
-  const handleOpenCalendar = (date) => {
-    setSelectedDate(date);
-    setCurrentMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+  const handleOpenCalendar = () => {
     setIsCalendarOpen(true);
   };
 
@@ -540,6 +529,7 @@ export default function HomePage() {
           currentMonth={currentMonth}
           onOpenCalendar={handleOpenCalendar}
           onChangeMonth={handleChangeMonth}
+          onSelectDate={handleSelectDate}
         />
 
         {isLoading && (

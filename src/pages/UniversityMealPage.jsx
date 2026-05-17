@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import MobileLayout from "../components/layout/MobileLayout";
 import PageHeader from "../components/layout/PageHeader";
@@ -8,7 +8,12 @@ import CalendarModal from "../components/common/CalendarModal";
 import { addMenuOption } from "../api/mealLogApi";
 import { getDailyMenu } from "../api/menuApi";
 import { getMe } from "../api/userApi";
-import { formatDateKey, toMealDisplay, toRounded } from "../utils/mealData";
+import {
+  formatDateKey,
+  parseDateKey,
+  toMealDisplay,
+  toRounded,
+} from "../utils/mealData";
 
 const DINING_TYPE_ORDER = ["STUDENT", "DORMITORY"];
 const DINING_TYPE_LABELS = {
@@ -136,8 +141,11 @@ function DiningSection({
 
 export default function UniversityMealPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [mealType, setMealType] = useState("LUNCH");
-  const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [selectedDate, setSelectedDate] = useState(
+    () => parseDateKey(searchParams.get("date")) || new Date()
+  );
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const date = formatDateKey(selectedDate);
   const [universityId, setUniversityId] = useState(null);
@@ -149,6 +157,26 @@ export default function UniversityMealPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState("");
+
+  const updateSelectedDate = (nextDate, options = {}) => {
+    setSelectedDate(nextDate);
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set("date", formatDateKey(nextDate));
+        return next;
+      },
+      { replace: options.replace ?? false }
+    );
+  };
+
+  useEffect(() => {
+    const queryDate = parseDateKey(searchParams.get("date"));
+
+    if (queryDate && formatDateKey(queryDate) !== date) {
+      setSelectedDate(queryDate);
+    }
+  }, [date, searchParams]);
 
   useEffect(() => {
     let ignore = false;
@@ -335,7 +363,8 @@ export default function UniversityMealPage() {
         <button
           type="button"
           onClick={() => setIsCalendarOpen(true)}
-          className="-mt-[64px] mb-[38px] mx-auto flex h-[28px] items-center justify-center rounded-full bg-[#f8f8f8] px-[14px] text-[11px] font-bold text-[#6f7075]"
+          aria-label="식당 메뉴 날짜 선택"
+          className="relative z-30 -mt-[64px] mb-[38px] mx-auto flex h-[36px] min-w-[124px] items-center justify-center rounded-full bg-[#f8f8f8] px-[16px] text-[12px] font-bold text-[#6f7075]"
         >
           {date}
         </button>
@@ -428,7 +457,7 @@ export default function UniversityMealPage() {
       <CalendarModal
         open={isCalendarOpen}
         selectedDate={selectedDate}
-        onSelect={setSelectedDate}
+        onSelect={updateSelectedDate}
         onClose={() => setIsCalendarOpen(false)}
       />
 

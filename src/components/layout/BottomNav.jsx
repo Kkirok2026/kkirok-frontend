@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 
 import HomeActiveIcon from "../../assets/icons/Home-ac.svg";
 import HomeInactiveIcon from "../../assets/icons/Home-inac.svg";
@@ -17,6 +17,7 @@ const navItems = [
     activeIcon: HomeActiveIcon,
     inactiveIcon: HomeInactiveIcon,
     className: "w-[28px] h-[28px]",
+    preserveDate: true,
   },
   {
     to: "/search",
@@ -31,6 +32,7 @@ const navItems = [
     activeIcon: MealActiveIcon,
     inactiveIcon: MealInactiveIcon,
     className: "w-[24px] h-[24px]",
+    preserveDate: true,
   },
   {
     to: "/profile",
@@ -41,10 +43,19 @@ const navItems = [
   },
 ];
 
-function NavIcon({ item }) {
+function navTarget(item, search) {
+  if (!item.preserveDate) return item.to;
+
+  const params = new URLSearchParams(search);
+  const date = params.get("date");
+
+  return date ? `${item.to}?date=${encodeURIComponent(date)}` : item.to;
+}
+
+function NavIcon({ item, search }) {
   return (
     <NavLink
-      to={item.to}
+      to={navTarget(item, search)}
       aria-label={item.label}
       className="h-full flex items-center justify-center"
     >
@@ -60,10 +71,12 @@ function NavIcon({ item }) {
 }
 
 export default function BottomNav() {
+  const location = useLocation();
+
   return (
     <nav className="absolute left-0 right-0 bottom-0 h-[86px] bg-white border-t border-[#f5f5f5] grid grid-cols-5 items-center px-[22px] z-40">
-      <NavIcon item={navItems[0]} />
-      <NavIcon item={navItems[1]} />
+      <NavIcon item={navItems[0]} search={location.search} />
+      <NavIcon item={navItems[1]} search={location.search} />
 
       <div className="relative h-full flex items-end justify-center overflow-visible">
         <img
@@ -73,8 +86,8 @@ export default function BottomNav() {
         />
       </div>
 
-      <NavIcon item={navItems[2]} />
-      <NavIcon item={navItems[3]} />
+      <NavIcon item={navItems[2]} search={location.search} />
+      <NavIcon item={navItems[3]} search={location.search} />
     </nav>
   );
 }

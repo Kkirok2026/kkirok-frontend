@@ -26,6 +26,19 @@ export function formatDateKey(date) {
   return `${year}-${month}-${day}`;
 }
 
+export function parseDateKey(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || "");
+
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+
+  return formatDateKey(date) === value ? date : null;
+}
+
 export function toNumber(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
