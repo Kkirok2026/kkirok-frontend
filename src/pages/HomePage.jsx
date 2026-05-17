@@ -403,10 +403,11 @@ function MealCard({ mealKey, meal, onClick }) {
   );
 }
 
-function MealRecords({ dailyData }) {
+function MealRecords({ dailyData, selectedDateKey }) {
   const navigate = useNavigate();
 
   const meals = dailyData?.meals ?? emptyMeals();
+  const recordDate = dailyData?.date || selectedDateKey;
 
   return (
     <section className="mx-[58px] mt-[22px] pb-[126px]">
@@ -426,7 +427,7 @@ function MealRecords({ dailyData }) {
                   state: {
                     mealKey,
                     meal,
-                    date: dailyData?.date,
+                    date: recordDate,
                   },
                 });
                 return;
@@ -434,7 +435,7 @@ function MealRecords({ dailyData }) {
 
               const searchParams = new URLSearchParams({
                 mealType: meal.mealType || MEAL_KEY_TO_TYPE[mealKey],
-                date: dailyData?.date || getDateKey(new Date()),
+                date: recordDate,
               });
 
               navigate(`/search?${searchParams.toString()}`, {
@@ -458,9 +459,7 @@ export default function HomePage() {
   );
   const [selectedDate, setSelectedDate] = useState(today);
   const selectedKey = getDateKey(selectedDate);
-  const [dailyData, setDailyData] = useState(() =>
-    toDailyDisplay({ date: selectedKey, totals: {} }, { items: [] })
-  );
+  const [dailyData, setDailyData] = useState(null);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -489,7 +488,7 @@ export default function HomePage() {
         }
 
         setError(loadError.message || "홈 데이터를 불러오지 못했습니다.");
-        setDailyData(toDailyDisplay({ date: selectedKey, totals: {} }, { items: [] }));
+        setDailyData(null);
       } finally {
         if (!ignore) setIsLoading(false);
       }
@@ -559,7 +558,7 @@ export default function HomePage() {
 
         <DonutChart data={dailyData} />
 
-        <MealRecords dailyData={dailyData} />
+        <MealRecords dailyData={dailyData} selectedDateKey={selectedKey} />
       </div>
 
       <BottomNav />
