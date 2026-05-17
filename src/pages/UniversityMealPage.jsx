@@ -7,9 +7,8 @@ import BottomNav from "../components/layout/BottomNav";
 import Modal from "../components/common/Modal";
 import { addMenuOption } from "../api/mealLogApi";
 import { compareMenus, getDailyMenu } from "../api/menuApi";
+import { getMe } from "../api/userApi";
 import { formatDateKey, toMealDisplay, toRounded } from "../utils/mealData";
-
-const DEFAULT_UNIVERSITY_ID = 2;
 
 function optionLines(optionName = "") {
   return optionName
@@ -55,9 +54,12 @@ export default function UniversityMealPage() {
   const [open, setOpen] = useState(false);
   const [mealType, setMealType] = useState("LUNCH");
   const [date] = useState(() => formatDateKey(new Date()));
+  const [universityId, setUniversityId] = useState(null);
+  const [universityName, setUniversityName] = useState("");
   const [dailyMenu, setDailyMenu] = useState(null);
   const [compareResult, setCompareResult] = useState(null);
   const [selectedOptionId, setSelectedOptionId] = useState(null);
+  const [isResolvingUniversity, setIsResolvingUniversity] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState("");
@@ -65,14 +67,61 @@ export default function UniversityMealPage() {
   useEffect(() => {
     let ignore = false;
 
+    async function loadUniversity() {
+      setIsResolvingUniversity(true);
+      setError("");
+
+      try {
+        const response = await getMe();
+        const university = response?.university;
+
+        if (ignore) return;
+
+        if (!university?.universityId) {
+          setUniversityId(null);
+          setUniversityName("");
+          setDailyMenu(null);
+          setError("학교 인증 계정만 학식 메뉴를 확인할 수 있습니다.");
+          return;
+        }
+
+        setUniversityId(university.universityId);
+        setUniversityName(university.universityName || "");
+      } catch (loadError) {
+        if (ignore) return;
+
+        if (loadError.status === 401) {
+          navigate("/login", { replace: true });
+          return;
+        }
+
+        setError(loadError.message || "학교 정보를 불러오지 못했습니다.");
+      } finally {
+        if (!ignore) setIsResolvingUniversity(false);
+      }
+    }
+
+    loadUniversity();
+
+    return () => {
+      ignore = true;
+    };
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!universityId) return;
+
+    let ignore = false;
+
     async function loadDailyMenu() {
       setIsLoading(true);
       setError("");
       setCompareResult(null);
+      setSelectedOptionId(null);
 
       try {
         const response = await getDailyMenu({
-          universityId: DEFAULT_UNIVERSITY_ID,
+          universityId,
           date,
           mealType,
         });
@@ -93,7 +142,7 @@ export default function UniversityMealPage() {
     return () => {
       ignore = true;
     };
-  }, [date, mealType]);
+  }, [date, mealType, universityId]);
 
   const studentOptions = useMemo(() => {
     return (dailyMenu?.diningPlaces ?? [])
@@ -131,14 +180,17 @@ export default function UniversityMealPage() {
   }, [selectedOptionId, studentOptions]);
 
   useEffect(() => {
-    if (!selectedOptionId) return;
+    if (!selectedOptionId || !universityId) {
+      setCompareResult(null);
+      return;
+    }
 
     let ignore = false;
 
     async function loadCompare() {
       try {
         const response = await compareMenus({
-          universityId: DEFAULT_UNIVERSITY_ID,
+          universityId,
           date,
           mealType,
           studentOptionId: selectedOptionId,
@@ -157,7 +209,7 @@ export default function UniversityMealPage() {
     return () => {
       ignore = true;
     };
-  }, [date, mealType, selectedOptionId]);
+  }, [date, mealType, selectedOptionId, universityId]);
 
   const compareItems = compareResult?.items ?? [];
   const selectedOption =
@@ -204,6 +256,12 @@ export default function UniversityMealPage() {
     <MobileLayout>
       <div className="absolute inset-0 overflow-y-auto px-7 pb-[132px]">
         <PageHeader eyebrow="University Meal" title="77ㅣ록" />
+
+        {universityName && (
+          <p className="-mt-3 mb-5 text-center text-xs text-neutral-400">
+            {universityName}
+          </p>
+        )}
 
         <div className="grid grid-cols-2 bg-neutral-50 rounded-full p-2 mb-5">
           <button
@@ -252,7 +310,7 @@ export default function UniversityMealPage() {
           </div>
         )}
 
-        {isLoading && (
+        {(isResolvingUniversity || isLoading) && (
           <p className="text-xs text-neutral-400 mb-4">메뉴를 불러오는 중입니다.</p>
         )}
 
@@ -261,6 +319,8 @@ export default function UniversityMealPage() {
         {selectedOption ? (
           <MenuCard item={selectedOption} highlighted />
         ) : (
+          universityId &&
+          !isResolvingUniversity &&
           !isLoading && (
             <p className="text-xs text-neutral-400 mb-8">
               선택할 학생식당 메뉴가 없습니다.
@@ -281,7 +341,7 @@ export default function UniversityMealPage() {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          disabled={!selectedOption}
+          disabled={!selectedOption || !universityId}
           className="ml-auto flex items-center gap-3 px-5 h-9 rounded-full bg-neutral-800 text-white text-xs disabled:opacity-40"
         >
           이걸로 먹을래요

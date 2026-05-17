@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import MobileLayout from "../components/layout/MobileLayout";
 import KkirokLogo from "../components/common/KkirokLogo";
+import { DEFAULT_SIGNUP_NUTRITION } from "../fixtures/nutritionDefaults";
 
 import DuckResultImage from "../assets/images/duck_result.png";
 import CarbsIcon from "../assets/icons/Carbs.png";
@@ -46,11 +47,7 @@ export default function SignupResultPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const nutrition = location.state?.nutrition ?? {
-    carbs: 280,
-    protein: 75,
-    fat: 80,
-  };
+  const nutrition = location.state?.nutrition ?? DEFAULT_SIGNUP_NUTRITION;
 
   return (
     <MobileLayout>

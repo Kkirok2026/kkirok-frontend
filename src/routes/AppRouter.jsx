@@ -17,6 +17,9 @@ import FoodSearchPage from "../pages/FoodSearchPage";
 import FoodDetailPage from "../pages/FoodDetailPage";
 import UniversityMealPage from "../pages/UniversityMealPage";
 import ProfilePage from "../pages/ProfilePage";
+import ProfileEditPage from "../pages/ProfileEditPage";
+import ProfileGoalEditPage from "../pages/ProfileGoalEditPage";
+import DeleteAccountPage from "../pages/DeleteAccountPage";
 
 
 export default function AppRouter() {
@@ -40,6 +43,9 @@ export default function AppRouter() {
       <Route path="/university-meal" element={<UniversityMealPage />} />
       <Route path="/profile" element={<ProfilePage />} />
       <Route path="/food-detail/:foodName" element={<FoodDetailPage />} />
+      <Route path="/profile/edit" element={<ProfileEditPage />} />
+      <Route path="/profile/edit/goal" element={<ProfileGoalEditPage />} />
+      <Route path="/profile/delete" element={<DeleteAccountPage />} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

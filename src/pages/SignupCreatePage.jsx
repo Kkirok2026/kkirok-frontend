@@ -17,6 +17,7 @@ export default function SignupCreatePage() {
   const previousState = location.state ?? {};
 
   const verifiedEmail = previousState.email ?? "";
+  const verificationCode = previousState.verificationCode ?? "";
   const [name, setName] = useState(previousState.name ?? "");
   const [password, setPassword] = useState(previousState.password ?? "");
 
@@ -61,6 +62,15 @@ export default function SignupCreatePage() {
             icon={MessageIcon}
             placeholder="Email"
             value={verifiedEmail}
+            readOnly
+          />
+        </div>
+
+        <div className="mt-[18px]">
+          <AuthInput
+            icon={MessageIcon}
+            placeholder="인증번호"
+            value={verificationCode}
             readOnly
           />
         </div>

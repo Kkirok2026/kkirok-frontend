@@ -19,3 +19,7 @@ export function addAllergy(allergy) {
 export function deleteAllergy(allergyId) {
   return apiClient.delete(`/users/me/allergies/${allergyId}`);
 }
+
+export function deleteMe() {
+  return apiClient.delete("/users/me");
+}

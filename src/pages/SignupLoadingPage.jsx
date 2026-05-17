@@ -11,6 +11,7 @@ import { updateProfile } from "../api/userApi";
 import {
   formatDateKey,
   genderToApi,
+  targetPeriodUnitToApi,
   targetsToNutrition,
 } from "../utils/mealData";
 
@@ -100,6 +101,9 @@ export default function SignupLoadingPage() {
         const targetWeightKg = signupState.goalWeight
           ? Number(signupState.goalWeight)
           : null;
+        const targetPeriodValue = signupState.periodValue
+          ? Number(signupState.periodValue)
+          : null;
 
         if (
           !signupState.email ||
@@ -127,6 +131,10 @@ export default function SignupLoadingPage() {
           heightCm,
           weightKg,
           targetWeightKg,
+          targetPeriodValue,
+          targetPeriodUnit: targetPeriodValue
+            ? targetPeriodUnitToApi(signupState.periodUnit)
+            : null,
           activityLevel: "LOW_ACTIVE",
         });
 

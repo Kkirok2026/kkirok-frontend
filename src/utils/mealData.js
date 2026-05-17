@@ -138,3 +138,16 @@ export function genderToApi(gender) {
   if (normalized === "FEMALE" || normalized === "F") return "FEMALE";
   return "OTHER";
 }
+
+export function targetPeriodUnitToApi(unit) {
+  const normalized = `${unit || ""}`.trim().toUpperCase();
+
+  if (normalized === "WEEK") return "WEEK";
+  return "MONTH";
+}
+
+export function targetPeriodLabel(value, unit) {
+  if (!value) return "-";
+  const label = targetPeriodUnitToApi(unit) === "WEEK" ? "주" : "개월";
+  return `${value}${label}`;
+}
