@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import MobileLayout from "../components/layout/MobileLayout";
 import KkirokLogo from "../components/common/KkirokLogo";
 import BottomButton from "../components/common/BottomButton";
+import { login } from "../api/authApi";
 
 import MessageIcon from "../assets/icons/Message.svg";
 import LockIcon from "../assets/icons/Lock.svg";
@@ -22,33 +23,7 @@ function LoginField({
   const inputRef = useRef(null);
   const [isFocused, setIsFocused] = useState(false);
 
-  const displayValue =
-    isPassword && passwordHidden ? "*".repeat(value.length) : value;
-
-  const handleKeyDown = (event) => {
-    if (!isPassword || !passwordHidden) return;
-
-    if (event.metaKey || event.ctrlKey || event.altKey) return;
-
-    if (event.key === "Backspace") {
-      event.preventDefault();
-      onChange(value.slice(0, -1));
-      return;
-    }
-
-    if (event.key === "Delete") {
-      event.preventDefault();
-      return;
-    }
-
-    if (event.key.length === 1) {
-      event.preventDefault();
-      onChange(value + event.key);
-    }
-  };
-
   const handleChange = (event) => {
-    if (isPassword && passwordHidden) return;
     onChange(event.target.value);
   };
 
@@ -66,10 +41,9 @@ function LoginField({
 
       <input
         ref={inputRef}
-        type="text"
-        value={displayValue}
+        type={isPassword && passwordHidden ? "password" : "text"}
+        value={value}
         onChange={handleChange}
-        onKeyDown={handleKeyDown}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
         placeholder={isFocused ? "" : placeholder}
@@ -104,10 +78,25 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordHidden, setPasswordHidden] = useState(true);
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    navigate("/home");
+
+    if (isSubmitting) return;
+
+    setError("");
+    setIsSubmitting(true);
+
+    try {
+      await login({ email: email.trim(), password });
+      navigate("/home", { replace: true });
+    } catch (loginError) {
+      setError(loginError.message || "로그인에 실패했습니다.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -148,9 +137,17 @@ export default function LoginPage() {
           >
             회원가입
           </Link>
+
+          {error && (
+            <p className="mt-[14px] text-center text-[12px] font-light text-[#ff5b5b] tracking-[-0.02em]">
+              {error}
+            </p>
+          )}
         </div>
 
-        <BottomButton type="submit">로그인</BottomButton>
+        <BottomButton type="submit">
+          {isSubmitting ? "로그인 중..." : "로그인"}
+        </BottomButton>
       </form>
     </MobileLayout>
   );

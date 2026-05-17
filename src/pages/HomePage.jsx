@@ -3,12 +3,13 @@ import { useNavigate } from "react-router-dom";
 
 import MobileLayout from "../components/layout/MobileLayout";
 import KkirokLogo from "../components/common/KkirokLogo";
-
-import HomeActiveIcon from "../assets/icons/Home-ac.svg";
-import SearchIcon from "../assets/icons/Search-inac.svg";
-import MealIcon from "../assets/icons/Meal-inac.svg";
-import ProfileIcon from "../assets/icons/Profile-inac.svg";
-import DuckNavIcon from "../assets/images/duck_navi.png";
+import BottomNav from "../components/layout/BottomNav";
+import { getDailySummary, getMealLogsByDate } from "../api/mealLogApi";
+import {
+  MEAL_KEY_TO_TYPE,
+  emptyMeals,
+  toDailyDisplay,
+} from "../utils/mealData";
 
 const MACRO_COLORS = {
   protein: "#d4ef66",
@@ -40,49 +41,6 @@ function getDaysInMonth(date) {
 function getDayName(date) {
   return date.toLocaleString("en-US", { weekday: "short" }).slice(0, 3);
 }
-
-const todayKey = getDateKey(today);
-
-const DEFAULT_DAILY_DATA = {
-  [todayKey]: {
-    totalKcal: 1260,
-    macros: {
-      protein: 75,
-      fat: 80,
-      carbs: 280,
-    },
-    meals: {
-      breakfast: {
-        label: "아침",
-        kcal: 760,
-        carbs: 80,
-        protein: 80,
-        fat: 80,
-      },
-      lunch: {
-        label: "점심",
-        kcal: 1260,
-        carbs: 80,
-        protein: 80,
-        fat: 80,
-      },
-      dinner: {
-        label: "저녁",
-        kcal: 860,
-        carbs: 80,
-        protein: 80,
-        fat: 80,
-      },
-      snack: {
-        label: "간식",
-        kcal: 76,
-        carbs: 80,
-        protein: 80,
-        fat: 80,
-      },
-    },
-  },
-};
 
 function DateCarousel({ selectedDate, onSelectDate, currentMonth, onChangeMonth }) {
   const scrollRef = useRef(null);
@@ -198,10 +156,15 @@ function DateCarousel({ selectedDate, onSelectDate, currentMonth, onChangeMonth 
   );
 }
 
-function WarningBox() {
+function WarningBox({ warnings = [] }) {
   const [visible, setVisible] = useState(true);
+  const firstWarning = warnings[0];
 
-  if (!visible) return null;
+  useEffect(() => {
+    setVisible(true);
+  }, [warnings]);
+
+  if (!visible || !firstWarning) return null;
 
   return (
     <section
@@ -235,9 +198,7 @@ function WarningBox() {
           lineHeight: "1.35",
         }}
       >
-        어제 너무 탄수화물 위주였어요
-        <br />
-        탄수화물을 지양한 음식을 섭취해주세요
+        {firstWarning.message}
       </p>
     </section>
   );
@@ -312,7 +273,7 @@ function DonutChart({ data }) {
 }
 
 function MealCard({ mealKey, meal, onClick }) {
-  const hasData = Boolean(meal?.kcal);
+  const hasData = Boolean(meal?.mealLogId || meal?.kcal || meal?.foods?.length);
 
   return (
     <button
@@ -354,12 +315,7 @@ function MealCard({ mealKey, meal, onClick }) {
 function MealRecords({ dailyData }) {
   const navigate = useNavigate();
 
-  const meals = dailyData?.meals ?? {
-    breakfast: { label: "아침" },
-    lunch: { label: "점심" },
-    dinner: { label: "저녁" },
-    snack: { label: "간식" },
-  };
+  const meals = dailyData?.meals ?? emptyMeals();
 
   return (
     <section className="mx-[58px] mt-[22px] pb-[126px]">
@@ -373,14 +329,30 @@ function MealRecords({ dailyData }) {
             key={mealKey}
             mealKey={mealKey}
             meal={meal}
-            onClick={() =>
-              navigate(`/meal-details/${mealKey}`, {
+            onClick={() => {
+              if (meal.mealLogId) {
+                navigate(`/meal-details/${mealKey}`, {
+                  state: {
+                    mealKey,
+                    meal,
+                    date: dailyData?.date,
+                  },
+                });
+                return;
+              }
+
+              const searchParams = new URLSearchParams({
+                mealType: meal.mealType || MEAL_KEY_TO_TYPE[mealKey],
+                date: dailyData?.date || getDateKey(new Date()),
+              });
+
+              navigate(`/search?${searchParams.toString()}`, {
                 state: {
                   mealKey,
                   meal,
                 },
-              })
-            }
+              });
+            }}
           />
         ))}
       </div>
@@ -388,30 +360,55 @@ function MealRecords({ dailyData }) {
   );
 }
 
-function BottomNav() {
-  return (
-    <nav className="absolute left-0 right-0 bottom-0 h-[76px] bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.04)] flex items-center justify-around px-[24px]">
-      <img src={HomeActiveIcon} alt="홈" className="w-[25px] h-[25px]" />
-      <img src={SearchIcon} alt="검색" className="w-[25px] h-[25px]" />
-      <img
-        src={DuckNavIcon}
-        alt="끼록"
-        className="w-[50px] h-[50px] object-contain self-end"
-      />
-      <img src={MealIcon} alt="식단" className="w-[25px] h-[25px]" />
-      <img src={ProfileIcon} alt="프로필" className="w-[25px] h-[25px]" />
-    </nav>
-  );
-}
-
 export default function HomePage() {
+  const navigate = useNavigate();
   const [currentMonth, setCurrentMonth] = useState(
     new Date(today.getFullYear(), today.getMonth(), 1)
   );
   const [selectedDate, setSelectedDate] = useState(today);
-
   const selectedKey = getDateKey(selectedDate);
-  const dailyData = DEFAULT_DAILY_DATA[selectedKey];
+  const [dailyData, setDailyData] = useState(() =>
+    toDailyDisplay({ date: selectedKey, totals: {} }, { items: [] })
+  );
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadDailyData() {
+      setIsLoading(true);
+      setError("");
+
+      try {
+        const [summary, mealLogs] = await Promise.all([
+          getDailySummary(selectedKey),
+          getMealLogsByDate(selectedKey),
+        ]);
+
+        if (ignore) return;
+        setDailyData(toDailyDisplay(summary, mealLogs));
+      } catch (loadError) {
+        if (ignore) return;
+
+        if (loadError.status === 401) {
+          navigate("/login", { replace: true });
+          return;
+        }
+
+        setError(loadError.message || "홈 데이터를 불러오지 못했습니다.");
+        setDailyData(toDailyDisplay({ date: selectedKey, totals: {} }, { items: [] }));
+      } finally {
+        if (!ignore) setIsLoading(false);
+      }
+    }
+
+    loadDailyData();
+
+    return () => {
+      ignore = true;
+    };
+  }, [navigate, selectedKey]);
 
   const handleChangeMonth = (nextMonth) => {
     setCurrentMonth(nextMonth);
@@ -447,7 +444,19 @@ export default function HomePage() {
           onChangeMonth={handleChangeMonth}
         />
 
-        <WarningBox />
+        {isLoading && (
+          <p className="mt-[20px] text-center text-[12px] font-light text-[#8a8c90]">
+            영양 데이터를 불러오는 중입니다.
+          </p>
+        )}
+
+        {error && (
+          <p className="mx-[58px] mt-[20px] text-center text-[12px] font-light text-[#ff5b5b]">
+            {error}
+          </p>
+        )}
+
+        <WarningBox warnings={dailyData?.warnings ?? []} />
 
         <DonutChart data={dailyData} />
 

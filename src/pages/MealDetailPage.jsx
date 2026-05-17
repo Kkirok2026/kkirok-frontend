@@ -1,50 +1,30 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import MobileLayout from "../components/layout/MobileLayout";
 import KkirokLogo from "../components/common/KkirokLogo";
+import { getMealLog, setMealLogItemExcluded } from "../api/mealLogApi";
+import {
+  MEAL_KEY_TO_TYPE,
+  MEAL_LABELS,
+  toMealDisplay,
+} from "../utils/mealData";
 
-const MEAL_LABELS = {
-  breakfast: "아침",
-  lunch: "점심",
-  dinner: "저녁",
-  snack: "간식",
-};
+function emptyMeal(mealKey) {
+  const mealType = MEAL_KEY_TO_TYPE[mealKey] || "BREAKFAST";
 
-const DEFAULT_MEAL_DATA = {
-  breakfast: {
-    label: "아침",
-    kcal: 760,
-    carbs: 760,
-    protein: 760,
-    fat: 760,
-    foods: ["감자샐러드", "자두에이드"],
-  },
-  lunch: {
-    label: "점심",
-    kcal: 1260,
-    carbs: 280,
-    protein: 75,
-    fat: 80,
-    foods: ["감자샐러드", "자두에이드"],
-  },
-  dinner: {
-    label: "저녁",
-    kcal: 860,
-    carbs: 80,
-    protein: 80,
-    fat: 80,
-    foods: ["감자샐러드", "자두에이드"],
-  },
-  snack: {
-    label: "간식",
-    kcal: 76,
-    carbs: 80,
-    protein: 80,
-    fat: 80,
-    foods: ["감자샐러드", "자두에이드"],
-  },
-};
+  return {
+    mealKey,
+    mealType,
+    label: MEAL_LABELS[mealType] || "식단",
+    kcal: 0,
+    carbs: 0,
+    protein: 0,
+    fat: 0,
+    foods: [],
+    items: [],
+  };
+}
 
 function NutritionSummaryBox({ label, value, unit = "g" }) {
   return (
@@ -60,14 +40,14 @@ function NutritionSummaryBox({ label, value, unit = "g" }) {
   );
 }
 
-function FoodRow({ name, onOpenDelete }) {
+function FoodRow({ item, onOpenDelete }) {
   return (
     <div className="h-[34px] flex items-center">
       <button
         type="button"
         className="flex-1 text-left text-[17px] font-normal text-[#272932] tracking-[-0.03em]"
       >
-        {name}
+        {item.itemName}
       </button>
 
       <button
@@ -77,18 +57,20 @@ function FoodRow({ name, onOpenDelete }) {
         ›
       </button>
 
-      <button
-        type="button"
-        onClick={onOpenDelete}
-        className="ml-[12px] w-[18px] h-[18px] rounded-[4px] border border-[#ff9b67] flex items-center justify-center text-[12px] leading-none text-[#ff9b67]"
-      >
-        ×
-      </button>
+      {item.mealLogItemId && (
+        <button
+          type="button"
+          onClick={() => onOpenDelete(item)}
+          className="ml-[12px] w-[18px] h-[18px] rounded-[4px] border border-[#ff9b67] flex items-center justify-center text-[12px] leading-none text-[#ff9b67]"
+        >
+          x
+        </button>
+      )}
     </div>
   );
 }
 
-function DeleteModal({ onClose, onDelete }) {
+function DeleteModal({ isDeleting, onClose, onDelete }) {
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/30">
       <div className="relative w-[280px] rounded-[8px] bg-white px-[28px] pt-[30px] pb-[26px]">
@@ -97,7 +79,7 @@ function DeleteModal({ onClose, onDelete }) {
           onClick={onClose}
           className="absolute left-[24px] top-[22px] text-[20px] font-light text-[#272932]"
         >
-          ×
+          x
         </button>
 
         <p className="text-center text-[16px] font-bold text-[#272932] tracking-[-0.03em]">
@@ -105,15 +87,16 @@ function DeleteModal({ onClose, onDelete }) {
         </p>
 
         <p className="mt-[42px] text-center text-[13px] font-normal text-[#272932] tracking-[-0.03em]">
-          삭제된 식단은 다시 불러올 수 없습니다.
+          제외된 항목은 홈 요약 계산에서 빠집니다.
         </p>
 
         <button
           type="button"
           onClick={onDelete}
-          className="mt-[34px] h-[40px] w-full rounded-[7px] bg-[#272932] text-[13px] font-bold text-white tracking-[-0.02em]"
+          disabled={isDeleting}
+          className="mt-[34px] h-[40px] w-full rounded-[7px] bg-[#272932] text-[13px] font-bold text-white tracking-[-0.02em] disabled:opacity-50"
         >
-          삭제
+          {isDeleting ? "제외 중..." : "제외"}
         </button>
       </div>
     </div>
@@ -125,26 +108,72 @@ export default function MealDetailPage() {
   const location = useLocation();
   const { mealKey = "breakfast" } = useParams();
 
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const initialMeal = useMemo(
+    () => location.state?.meal ?? emptyMeal(mealKey),
+    [location.state, mealKey]
+  );
 
-  const meal = useMemo(() => {
-    const stateMeal = location.state?.meal;
+  const [meal, setMeal] = useState(initialMeal);
+  const [pendingDeleteItem, setPendingDeleteItem] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState("");
 
-    if (stateMeal) {
-      return {
-        ...DEFAULT_MEAL_DATA[mealKey],
-        ...stateMeal,
-        foods: stateMeal.foods ?? DEFAULT_MEAL_DATA[mealKey]?.foods ?? [],
-      };
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadMealDetail() {
+      if (!initialMeal.mealLogId) return;
+
+      try {
+        const response = await getMealLog(initialMeal.mealLogId);
+        if (!ignore) setMeal(toMealDisplay(response, mealKey));
+      } catch (loadError) {
+        if (!ignore) {
+          setError(loadError.message || "식단 상세를 불러오지 못했습니다.");
+        }
+      }
     }
 
-    return DEFAULT_MEAL_DATA[mealKey] ?? DEFAULT_MEAL_DATA.breakfast;
-  }, [location.state, mealKey]);
+    loadMealDetail();
 
-  const title = `${MEAL_LABELS[mealKey] ?? meal.label ?? "아침"} 영양`;
+    return () => {
+      ignore = true;
+    };
+  }, [initialMeal.mealLogId, mealKey]);
 
-  const handleDelete = () => {
-    setIsDeleteModalOpen(false);
+  const title = `${meal.label ?? "식단"} 영양`;
+  const foodItems =
+    meal.items?.length > 0
+      ? meal.items
+      : (meal.foods ?? []).map((food, index) => ({
+          mealLogItemId: null,
+          itemName: food,
+          fallbackKey: `${food}-${index}`,
+        }));
+
+  const handleDelete = async () => {
+    if (!meal.mealLogId || !pendingDeleteItem?.mealLogItemId) {
+      setPendingDeleteItem(null);
+      return;
+    }
+
+    setIsDeleting(true);
+    setError("");
+
+    try {
+      const response = await setMealLogItemExcluded({
+        mealLogId: meal.mealLogId,
+        mealLogItemId: pendingDeleteItem.mealLogItemId,
+        excluded: true,
+      });
+
+      setMeal(toMealDisplay(response, mealKey));
+      setPendingDeleteItem(null);
+    } catch (deleteError) {
+      setError(deleteError.message || "식단 항목을 제외하지 못했습니다.");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -170,6 +199,12 @@ export default function MealDetailPage() {
           {title}
         </h1>
 
+        {error && (
+          <p className="mt-[12px] text-[12px] font-light text-[#ff5b5b]">
+            {error}
+          </p>
+        )}
+
         <div className="mt-[28px]">
           <div className="h-[56px] rounded-[13px] border border-[#d7d2d2] px-[22px] flex items-center justify-between">
             <span className="text-[13px] font-bold text-[#272932] tracking-[-0.02em]">
@@ -190,24 +225,31 @@ export default function MealDetailPage() {
 
         <section className="mt-[34px]">
           <h2 className="text-[20px] font-extrabold text-[#272932] tracking-[-0.04em]">
-            {MEAL_LABELS[mealKey] ?? meal.label ?? "아침"} 식단
+            {meal.label ?? "식단"} 식단
           </h2>
 
           <div className="mt-[22px] space-y-[4px]">
-            {(meal.foods ?? []).map((food) => (
-              <FoodRow
-                key={food}
-                name={food}
-                onOpenDelete={() => setIsDeleteModalOpen(true)}
-              />
-            ))}
+            {foodItems.length > 0 ? (
+              foodItems.map((item) => (
+                <FoodRow
+                  key={item.mealLogItemId ?? item.fallbackKey}
+                  item={item}
+                  onOpenDelete={setPendingDeleteItem}
+                />
+              ))
+            ) : (
+              <p className="text-[13px] font-light text-[#8a8c90]">
+                아직 추가된 음식이 없습니다.
+              </p>
+            )}
           </div>
         </section>
       </main>
 
-      {isDeleteModalOpen && (
+      {pendingDeleteItem && (
         <DeleteModal
-          onClose={() => setIsDeleteModalOpen(false)}
+          isDeleting={isDeleting}
+          onClose={() => setPendingDeleteItem(null)}
           onDelete={handleDelete}
         />
       )}

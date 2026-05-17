@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import MobileLayout from "../components/layout/MobileLayout";
 import KkirokLogo from "../components/common/KkirokLogo";
 import BottomNavButtons from "../components/common/BottomNavButtons";
+import { searchIngredients } from "../api/ingredientApi";
 
 import SearchIcon from "../assets/icons/Search.svg";
 
@@ -35,10 +36,11 @@ const ALLERGY_CATEGORIES = [
   },
 ];
 
-const ALLERGY_ITEMS = ALLERGY_CATEGORIES.flatMap((category) =>
+const LOCAL_ALLERGY_ITEMS = ALLERGY_CATEGORIES.flatMap((category) =>
   category.items.map((item) => ({
-    id: `${category.id}-${item}`,
+    id: `name:${item}`,
     label: item,
+    ingredientName: item,
     categoryId: category.id,
   }))
 );
@@ -46,6 +48,30 @@ const ALLERGY_ITEMS = ALLERGY_CATEGORIES.flatMap((category) =>
 const CATEGORY_DEFAULT_BG = "#f1f0e9";
 const CATEGORY_OPEN_BG = "#f8f7f2";
 const SELECTED_CHIP_BG = "#cdea70";
+
+function allergyKey(allergy) {
+  if (allergy.ingredientId) return `ingredient:${allergy.ingredientId}`;
+  return `name:${allergy.ingredientName || allergy.label}`;
+}
+
+function normalizeAllergy(allergy) {
+  if (typeof allergy === "string") {
+    return {
+      id: `name:${allergy}`,
+      label: allergy,
+      ingredientName: allergy,
+    };
+  }
+
+  const label = allergy.label || allergy.ingredientName || allergy.allergyName;
+
+  return {
+    ...allergy,
+    id: allergy.id || allergyKey({ ...allergy, label }),
+    label,
+    ingredientName: allergy.ingredientName || label,
+  };
+}
 
 function SearchInput({ value, onChange }) {
   return (
@@ -92,7 +118,7 @@ function SelectedChip({ label, onRemove }) {
           lineHeight: "1",
         }}
       >
-        ×
+        x
       </span>
     </button>
   );
@@ -120,7 +146,7 @@ function CategoryButton({ label, opened, onClick }) {
           transform: opened ? "translateY(-1px)" : "translateY(0)",
         }}
       >
-        {opened ? "⌃" : "⌄"}
+        {opened ? "^" : "v"}
       </span>
     </button>
   );
@@ -151,34 +177,95 @@ export default function SignupAllergyPage() {
 
   const [query, setQuery] = useState("");
   const [openedCategoryId, setOpenedCategoryId] = useState("dairy");
-  const [selectedAllergies, setSelectedAllergies] = useState(
-    previousState.allergies ?? []
+  const [selectedAllergies, setSelectedAllergies] = useState(() =>
+    (previousState.allergies ?? []).map(normalizeAllergy)
   );
+  const [remoteItems, setRemoteItems] = useState([]);
+  const [searchError, setSearchError] = useState("");
 
   const openedCategory = ALLERGY_CATEGORIES.find(
     (category) => category.id === openedCategoryId
   );
 
+  useEffect(() => {
+    const trimmedQuery = query.trim();
+
+    if (!trimmedQuery) {
+      setRemoteItems([]);
+      setSearchError("");
+      return;
+    }
+
+    let ignore = false;
+
+    async function loadIngredients() {
+      try {
+        const response = await searchIngredients(trimmedQuery, 20);
+
+        if (ignore) return;
+
+        setRemoteItems(
+          (response?.items ?? []).map((item) => ({
+            id: `ingredient:${item.ingredientId}`,
+            label: item.ingredientName,
+            ingredientId: item.ingredientId,
+            ingredientName: item.ingredientName,
+          }))
+        );
+        setSearchError("");
+      } catch (error) {
+        if (ignore) return;
+        setRemoteItems([]);
+        setSearchError(error.message || "원재료 검색에 실패했습니다.");
+      }
+    }
+
+    loadIngredients();
+
+    return () => {
+      ignore = true;
+    };
+  }, [query]);
+
   const filteredItems = useMemo(() => {
     const trimmedQuery = query.trim();
 
     if (!trimmedQuery) return [];
+    if (remoteItems.length > 0) return remoteItems;
 
-    return ALLERGY_ITEMS.filter((item) => item.label.includes(trimmedQuery));
-  }, [query]);
+    const localMatches = LOCAL_ALLERGY_ITEMS.filter((item) =>
+      item.label.includes(trimmedQuery)
+    );
 
-  const toggleAllergy = (label) => {
+    if (localMatches.length > 0) return localMatches;
+
+    return [
+      {
+        id: `name:${trimmedQuery}`,
+        label: trimmedQuery,
+        ingredientName: trimmedQuery,
+      },
+    ];
+  }, [query, remoteItems]);
+
+  const toggleAllergy = (allergy) => {
+    const normalized = normalizeAllergy(allergy);
+    const key = allergyKey(normalized);
+
     setSelectedAllergies((prev) => {
-      if (prev.includes(label)) {
-        return prev.filter((item) => item !== label);
+      if (prev.some((item) => allergyKey(item) === key)) {
+        return prev.filter((item) => allergyKey(item) !== key);
       }
 
-      return [...prev, label];
+      return [...prev, normalized];
     });
   };
 
-  const removeAllergy = (label) => {
-    setSelectedAllergies((prev) => prev.filter((item) => item !== label));
+  const removeAllergy = (allergy) => {
+    const key = allergyKey(allergy);
+    setSelectedAllergies((prev) =>
+      prev.filter((item) => allergyKey(item) !== key)
+    );
   };
 
   const handlePrev = () => {
@@ -214,8 +301,8 @@ export default function SignupAllergyPage() {
           <div className="mb-[16px] flex flex-wrap items-center gap-x-[8px] gap-y-[7px]">
             {selectedAllergies.map((allergy) => (
               <SelectedChip
-                key={allergy}
-                label={allergy}
+                key={allergyKey(allergy)}
+                label={allergy.label}
                 onRemove={() => removeAllergy(allergy)}
               />
             ))}
@@ -225,16 +312,26 @@ export default function SignupAllergyPage() {
         <SearchInput value={query} onChange={setQuery} />
 
         {query.trim() ? (
-          <div className="mt-[28px] flex flex-wrap gap-x-[33px] gap-y-[18px] pl-[14px]">
-            {filteredItems.map((item) => (
-              <AllergyOption
-                key={item.id}
-                label={item.label}
-                selected={selectedAllergies.includes(item.label)}
-                onClick={() => toggleAllergy(item.label)}
-              />
-            ))}
-          </div>
+          <>
+            {searchError && (
+              <p className="mt-[10px] text-center text-[11px] font-light text-[#ff5b5b]">
+                {searchError}
+              </p>
+            )}
+
+            <div className="mt-[28px] flex flex-wrap gap-x-[33px] gap-y-[18px] pl-[14px]">
+              {filteredItems.map((item) => (
+                <AllergyOption
+                  key={item.id}
+                  label={item.label}
+                  selected={selectedAllergies.some(
+                    (allergy) => allergyKey(allergy) === allergyKey(item)
+                  )}
+                  onClick={() => toggleAllergy(item)}
+                />
+              ))}
+            </div>
+          </>
         ) : (
           <div className="mt-[18px] space-y-[12px]">
             {ALLERGY_CATEGORIES.map((category) => {
@@ -252,14 +349,25 @@ export default function SignupAllergyPage() {
 
                   {opened && openedCategory && (
                     <div className="mt-[17px] mb-[18px] flex flex-wrap gap-x-[33px] gap-y-[18px] pl-[14px]">
-                      {openedCategory.items.map((item) => (
-                        <AllergyOption
-                          key={item}
-                          label={item}
-                          selected={selectedAllergies.includes(item)}
-                          onClick={() => toggleAllergy(item)}
-                        />
-                      ))}
+                      {openedCategory.items.map((itemName) => {
+                        const item = {
+                          id: `name:${itemName}`,
+                          label: itemName,
+                          ingredientName: itemName,
+                        };
+
+                        return (
+                          <AllergyOption
+                            key={item.id}
+                            label={item.label}
+                            selected={selectedAllergies.some(
+                              (allergy) =>
+                                allergyKey(allergy) === allergyKey(item)
+                            )}
+                            onClick={() => toggleAllergy(item)}
+                          />
+                        );
+                      })}
                     </div>
                   )}
                 </div>

@@ -175,7 +175,10 @@ export default function SignupProfilePage() {
     setAge(value.replace(/[^\d]/g, ""));
   };
 
-  const canGoNext = height.trim().length > 0 && weight.trim().length > 0;
+  const canGoNext =
+    height.trim().length > 0 &&
+    weight.trim().length > 0 &&
+    age.trim().length > 0;
 
   const handlePrev = () => {
     navigate("/signup/create", {

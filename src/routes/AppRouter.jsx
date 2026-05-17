@@ -13,6 +13,10 @@ import SignupResultPage from "../pages/SignupResultPage";
 
 import HomePage from "../pages/HomePage";
 import MealDetailPage from "../pages/MealDetailPage";
+import FoodSearchPage from "../pages/FoodSearchPage";
+import FoodDetailPage from "../pages/FoodDetailPage";
+import UniversityMealPage from "../pages/UniversityMealPage";
+import ProfilePage from "../pages/ProfilePage";
 
 export default function AppRouter() {
   return (
@@ -30,6 +34,10 @@ export default function AppRouter() {
 
       <Route path="/home" element={<HomePage />} />
       <Route path="/meal-details/:mealKey" element={<MealDetailPage />} />
+      <Route path="/search" element={<FoodSearchPage />} />
+      <Route path="/foods/:foodId" element={<FoodDetailPage />} />
+      <Route path="/university-meal" element={<UniversityMealPage />} />
+      <Route path="/profile" element={<ProfilePage />} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

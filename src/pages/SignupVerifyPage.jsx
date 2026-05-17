@@ -5,34 +5,46 @@ import MobileLayout from "../components/layout/MobileLayout";
 import KkirokLogo from "../components/common/KkirokLogo";
 import AuthInput from "../components/common/AuthInput";
 import BottomButton from "../components/common/BottomButton";
+import { requestSchoolEmailVerification } from "../api/authApi";
 
 import MessageIcon from "../assets/icons/Message.svg";
-
-const MOCK_VERIFY_CODE = "123456";
 
 export default function SignupVerifyPage() {
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
   const [verifyCode, setVerifyCode] = useState("");
-  const [hasError, setHasError] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [isSending, setIsSending] = useState(false);
 
-  const handleSendCode = () => {
+  const handleSendCode = async () => {
     if (!email.trim()) return;
 
-    setHasError(false);
-    console.log("프론트 테스트용 인증번호:", MOCK_VERIFY_CODE);
+    setError("");
+    setMessage("");
+    setIsSending(true);
+
+    try {
+      await requestSchoolEmailVerification(email.trim());
+      setMessage("인증번호를 이메일로 보냈습니다.");
+    } catch (sendError) {
+      setError(sendError.message || "인증번호 발송에 실패했습니다.");
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleNext = () => {
-    if (verifyCode.trim() !== MOCK_VERIFY_CODE) {
-      setHasError(true);
+    if (!email.trim() || !verifyCode.trim()) {
+      setError("이메일과 인증번호를 입력해주세요.");
       return;
     }
 
     navigate("/signup/create", {
       state: {
-        email,
+        email: email.trim(),
+        verificationCode: verifyCode.trim(),
       },
     });
   };
@@ -60,6 +72,7 @@ export default function SignupVerifyPage() {
                 event.stopPropagation();
                 handleSendCode();
               }}
+              disabled={isSending}
               style={{
                 width: "58px",
                 height: "26px",
@@ -71,7 +84,7 @@ export default function SignupVerifyPage() {
                 lineHeight: "26px",
               }}
             >
-              인증
+              {isSending ? "발송" : "인증"}
             </button>
           }
         />
@@ -83,14 +96,20 @@ export default function SignupVerifyPage() {
             value={verifyCode}
             onChange={(value) => {
               setVerifyCode(value);
-              setHasError(false);
+              setError("");
             }}
           />
         </div>
 
-        {hasError && (
+        {message && (
+          <p className="mt-[9px] text-center text-[12px] font-light text-[#6da60f] tracking-[-0.02em]">
+            {message}
+          </p>
+        )}
+
+        {error && (
           <p className="mt-[9px] text-center text-[12px] font-light text-[#ff5b5b] tracking-[-0.02em]">
-            인증번호가 틀립니다. 다시 입력해주세요
+            {error}
           </p>
         )}
       </main>
