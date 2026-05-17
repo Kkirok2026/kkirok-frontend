@@ -18,6 +18,7 @@ import FoodDetailPage from "../pages/FoodDetailPage";
 import UniversityMealPage from "../pages/UniversityMealPage";
 import ProfilePage from "../pages/ProfilePage";
 
+
 export default function AppRouter() {
   return (
     <Routes>
@@ -38,6 +39,7 @@ export default function AppRouter() {
       <Route path="/foods/:foodId" element={<FoodDetailPage />} />
       <Route path="/university-meal" element={<UniversityMealPage />} />
       <Route path="/profile" element={<ProfilePage />} />
+      <Route path="/food-detail/:foodName" element={<FoodDetailPage />} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

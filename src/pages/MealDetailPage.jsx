@@ -3,12 +3,92 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import MobileLayout from "../components/layout/MobileLayout";
 import KkirokLogo from "../components/common/KkirokLogo";
+
 import { getMealLog, setMealLogItemExcluded } from "../api/mealLogApi";
 import {
   MEAL_KEY_TO_TYPE,
-  MEAL_LABELS,
+  MEAL_LABELS as API_MEAL_LABELS,
   toMealDisplay,
 } from "../utils/mealData";
+
+import ArrowIcon from "../assets/icons/Icon-Arrow.svg";
+import CloseSquareIcon from "../assets/icons/Close-Square.svg";
+
+const LOCAL_MEAL_LABELS = {
+  breakfast: "아침",
+  lunch: "점심",
+  dinner: "저녁",
+  snack: "간식",
+};
+
+const FOOD_DATA = {
+  감자샐러드: {
+    name: "감자샐러드",
+    foodName: "감자샐러드",
+    nutrients: {
+      carbs: "100gr",
+      sugar: "3osh qashiq",
+      sodium: "2osh qashiq",
+      protein: "2ta element",
+      fat: "100gr",
+    },
+  },
+  자두에이드: {
+    name: "자두에이드",
+    foodName: "자두에이드",
+    nutrients: {
+      carbs: "100gr",
+      sugar: "3osh qashiq",
+      sodium: "2osh qashiq",
+      protein: "2ta element",
+      fat: "100gr",
+    },
+  },
+};
+
+const DEFAULT_MEAL_DATA = {
+  breakfast: {
+    label: "아침",
+    kcal: 760,
+    carbs: 760,
+    protein: 760,
+    fat: 760,
+    foods: ["감자샐러드", "자두에이드"],
+  },
+  lunch: {
+    label: "점심",
+    kcal: 1260,
+    carbs: 280,
+    protein: 75,
+    fat: 80,
+    foods: ["감자샐러드", "자두에이드"],
+  },
+  dinner: {
+    label: "저녁",
+    kcal: 860,
+    carbs: 80,
+    protein: 80,
+    fat: 80,
+    foods: ["감자샐러드", "자두에이드"],
+  },
+  snack: {
+    label: "간식",
+    kcal: 76,
+    carbs: 80,
+    protein: 80,
+    fat: 80,
+    foods: ["감자샐러드", "자두에이드"],
+  },
+};
+
+function getMealLabel({ mealKey, mealType, label }) {
+  return (
+    label ||
+    API_MEAL_LABELS[mealType] ||
+    LOCAL_MEAL_LABELS[mealKey] ||
+    "식단"
+  );
+}
 
 function emptyMeal(mealKey) {
   const mealType = MEAL_KEY_TO_TYPE[mealKey] || "BREAKFAST";
@@ -16,7 +96,7 @@ function emptyMeal(mealKey) {
   return {
     mealKey,
     mealType,
-    label: MEAL_LABELS[mealType] || "식단",
+    label: getMealLabel({ mealKey, mealType }),
     kcal: 0,
     carbs: 0,
     protein: 0,
@@ -26,67 +106,180 @@ function emptyMeal(mealKey) {
   };
 }
 
-function NutritionSummaryBox({ label, value, unit = "g" }) {
+function fallbackMeal(mealKey) {
+  const mealType = MEAL_KEY_TO_TYPE[mealKey] || "BREAKFAST";
+  const fallback = DEFAULT_MEAL_DATA[mealKey];
+
+  if (!fallback) return emptyMeal(mealKey);
+
+  return {
+    ...emptyMeal(mealKey),
+    ...fallback,
+    mealKey,
+    mealType,
+    label: getMealLabel({
+      mealKey,
+      mealType,
+      label: fallback.label,
+    }),
+    items: [],
+  };
+}
+
+function NutritionSummaryBox({ label, value, unit = "g", wide = false }) {
   return (
-    <div className="h-[56px] rounded-[13px] border border-[#d7d2d2] px-[14px] flex items-center justify-between">
-      <span className="text-[12px] font-bold text-[#272932] tracking-[-0.02em]">
+    <div
+      className={[
+        "h-[50px] rounded-[13px] border border-[#d7d2d2]",
+        "px-[10px] flex items-center justify-center gap-[6px]",
+        wide ? "justify-between px-[22px]" : "",
+      ].join(" ")}
+    >
+      <span className="text-[10px] font-bold text-[#272932] tracking-[-0.03em] whitespace-nowrap">
         {label}
       </span>
 
-      <span className="text-[12px] font-bold text-[#69a80f] tracking-[-0.02em]">
+      <span className="text-[10px] font-bold text-[#69a80f] tracking-[-0.03em] whitespace-nowrap">
         {value} {unit}
       </span>
     </div>
   );
 }
 
-function FoodRow({ item, onOpenDelete }) {
+function getFoodName(item) {
+  if (typeof item === "string") return item;
+
+  return (
+    item.itemName ||
+    item.foodName ||
+    item.name ||
+    item.food?.foodName ||
+    item.food?.name ||
+    "음식"
+  );
+}
+
+function getFoodId(item) {
+  if (!item || typeof item === "string") return null;
+
+  return (
+    item.foodId ||
+    item.food?.foodId ||
+    item.food?.id ||
+    item.id ||
+    null
+  );
+}
+
+function normalizeFoodItem(item, index) {
+  if (typeof item === "string") {
+    return {
+      itemName: item,
+      foodId: null,
+      mealLogItemId: null,
+      fallbackKey: `${item}-${index}`,
+    };
+  }
+
+  const itemName = getFoodName(item);
+
+  return {
+    ...item,
+    itemName,
+    foodId: getFoodId(item),
+    mealLogItemId: item.mealLogItemId || null,
+    fallbackKey:
+      item.mealLogItemId ||
+      item.foodId ||
+      item.id ||
+      `${itemName}-${index}`,
+  };
+}
+
+function FoodRow({ item, onOpenDetail, onOpenDelete }) {
   return (
     <div className="h-[34px] flex items-center">
-      <button
-        type="button"
-        className="flex-1 text-left text-[17px] font-normal text-[#272932] tracking-[-0.03em]"
-      >
+      <span className="flex-1 text-left text-[17px] font-normal text-[#272932] tracking-[-0.03em]">
         {item.itemName}
+      </span>
+
+      <button
+        type="button"
+        onClick={() => onOpenDetail(item)}
+        className="w-[20px] h-[20px] flex items-center justify-center"
+        aria-label={`${item.itemName} 상세 보기`}
+      >
+        <img
+          src={ArrowIcon}
+          alt=""
+          className="w-[18px] h-[18px] object-contain"
+        />
       </button>
 
       <button
         type="button"
-        className="w-[18px] h-[18px] rounded-full border border-[#c9c9c9] flex items-center justify-center text-[13px] leading-none text-[#9a9a9a]"
+        onClick={() => onOpenDelete(item)}
+        className="ml-[12px] w-[20px] h-[20px] flex items-center justify-center"
+        aria-label={`${item.itemName} 삭제`}
       >
-        ›
+        <img
+          src={CloseSquareIcon}
+          alt=""
+          className="w-[18px] h-[18px] object-contain"
+        />
       </button>
-
-      {item.mealLogItemId && (
-        <button
-          type="button"
-          onClick={() => onOpenDelete(item)}
-          className="ml-[12px] w-[18px] h-[18px] rounded-[4px] border border-[#ff9b67] flex items-center justify-center text-[12px] leading-none text-[#ff9b67]"
-        >
-          x
-        </button>
-      )}
     </div>
   );
 }
 
 function DeleteModal({ isDeleting, onClose, onDelete }) {
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/30">
-      <div className="relative w-[280px] rounded-[8px] bg-white px-[28px] pt-[30px] pb-[26px]">
+    <div
+      className="absolute inset-0 z-50 flex items-center justify-center"
+      style={{
+        backgroundColor: "rgba(0, 0, 0, 0.32)",
+      }}
+    >
+      <div
+        className="relative rounded-[8px] bg-white"
+        style={{
+          width: "280px",
+          minHeight: "190px",
+          padding: "30px 28px 26px",
+        }}
+      >
         <button
           type="button"
           onClick={onClose}
-          className="absolute left-[24px] top-[22px] text-[20px] font-light text-[#272932]"
+          className="absolute left-[24px] top-[22px] text-[#272932]"
+          style={{
+            fontSize: "20px",
+            lineHeight: "1",
+            fontWeight: 300,
+          }}
         >
           x
         </button>
 
-        <p className="text-center text-[16px] font-bold text-[#272932] tracking-[-0.03em]">
+        <p
+          className="text-center text-[#272932] tracking-[-0.03em]"
+          style={{
+            fontSize: "16px",
+            lineHeight: "1",
+            fontWeight: 700,
+          }}
+        >
           식단에서 제외하시겠습니까?
         </p>
 
-        <p className="mt-[42px] text-center text-[13px] font-normal text-[#272932] tracking-[-0.03em]">
+        <p
+          className="mt-[42px] text-center text-[#272932] tracking-[-0.03em]"
+          style={{
+            fontSize: "13px",
+            lineHeight: "1.4",
+            fontWeight: 500,
+          }}
+        >
           제외된 항목은 홈 요약 계산에서 빠집니다.
         </p>
 
@@ -94,7 +287,14 @@ function DeleteModal({ isDeleting, onClose, onDelete }) {
           type="button"
           onClick={onDelete}
           disabled={isDeleting}
-          className="mt-[34px] h-[40px] w-full rounded-[7px] bg-[#272932] text-[13px] font-bold text-white tracking-[-0.02em] disabled:opacity-50"
+          className="mt-[34px] w-full rounded-[7px] flex items-center justify-center text-white tracking-[-0.02em] disabled:opacity-50"
+          style={{
+            height: "40px",
+            backgroundColor: "#272932",
+            color: "#ffffff",
+            fontSize: "13px",
+            fontWeight: 700,
+          }}
         >
           {isDeleting ? "제외 중..." : "제외"}
         </button>
@@ -108,28 +308,63 @@ export default function MealDetailPage() {
   const location = useLocation();
   const { mealKey = "breakfast" } = useParams();
 
-  const initialMeal = useMemo(
-    () => location.state?.meal ?? emptyMeal(mealKey),
-    [location.state, mealKey]
-  );
+  const initialMeal = useMemo(() => {
+    const stateMeal = location.state?.meal;
+
+    if (!stateMeal) {
+      return fallbackMeal(mealKey);
+    }
+
+    const mealType = stateMeal.mealType || MEAL_KEY_TO_TYPE[mealKey];
+
+    return {
+      ...fallbackMeal(mealKey),
+      ...stateMeal,
+      mealKey: stateMeal.mealKey || mealKey,
+      mealType,
+      label: getMealLabel({
+        mealKey: stateMeal.mealKey || mealKey,
+        mealType,
+        label: stateMeal.label,
+      }),
+    };
+  }, [location.state?.meal, mealKey]);
 
   const [meal, setMeal] = useState(initialMeal);
   const [pendingDeleteItem, setPendingDeleteItem] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isLoading, setIsLoading] = useState(Boolean(initialMeal.mealLogId));
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setMeal(initialMeal);
+    setError("");
+  }, [initialMeal]);
 
   useEffect(() => {
     let ignore = false;
 
     async function loadMealDetail() {
-      if (!initialMeal.mealLogId) return;
+      if (!initialMeal.mealLogId) {
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setError("");
 
       try {
         const response = await getMealLog(initialMeal.mealLogId);
-        if (!ignore) setMeal(toMealDisplay(response, mealKey));
+        if (!ignore) {
+          setMeal(toMealDisplay(response, mealKey));
+        }
       } catch (loadError) {
         if (!ignore) {
           setError(loadError.message || "식단 상세를 불러오지 못했습니다.");
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoading(false);
         }
       }
     }
@@ -141,18 +376,73 @@ export default function MealDetailPage() {
     };
   }, [initialMeal.mealLogId, mealKey]);
 
-  const title = `${meal.label ?? "식단"} 영양`;
-  const foodItems =
-    meal.items?.length > 0
-      ? meal.items
-      : (meal.foods ?? []).map((food, index) => ({
-          mealLogItemId: null,
-          itemName: food,
-          fallbackKey: `${food}-${index}`,
-        }));
+  const mealLabel = getMealLabel({
+    mealKey: meal.mealKey || mealKey,
+    mealType: meal.mealType,
+    label: meal.label,
+  });
+
+  const title = `${mealLabel} 영양`;
+
+  const foodItems = useMemo(() => {
+    if (meal.items?.length > 0) {
+      return meal.items.map((item, index) => normalizeFoodItem(item, index));
+    }
+
+    return (meal.foods ?? []).map((food, index) =>
+      normalizeFoodItem(food, index)
+    );
+  }, [meal.items, meal.foods]);
+
+  const handleOpenFoodDetail = (item) => {
+    const itemName = item.itemName;
+    const itemFoodId = item.foodId;
+    const routeParam = itemFoodId
+      ? String(itemFoodId)
+      : encodeURIComponent(itemName);
+
+    const query = new URLSearchParams();
+
+    if (location.state?.date) {
+      query.set("date", location.state.date);
+    }
+
+    if (meal.mealType) {
+      query.set("mealType", meal.mealType);
+    }
+
+    if (meal.mealLogId) {
+      query.set("mealLogId", String(meal.mealLogId));
+    }
+
+    const queryString = query.toString();
+
+    navigate(`/food-detail/${routeParam}${queryString ? `?${queryString}` : ""}`, {
+      state: {
+        food: item.food || FOOD_DATA[itemName] || {
+          name: itemName,
+          foodName: itemName,
+        },
+        meal,
+        date: location.state?.date,
+      },
+    });
+  };
 
   const handleDelete = async () => {
-    if (!meal.mealLogId || !pendingDeleteItem?.mealLogItemId) {
+    if (!pendingDeleteItem) return;
+
+    if (!meal.mealLogId || !pendingDeleteItem.mealLogItemId) {
+      const targetName = pendingDeleteItem.itemName;
+
+      setMeal((prev) => ({
+        ...prev,
+        items: (prev.items ?? []).filter(
+          (item) => getFoodName(item) !== targetName
+        ),
+        foods: (prev.foods ?? []).filter((food) => getFoodName(food) !== targetName),
+      }));
+
       setPendingDeleteItem(null);
       return;
     }
@@ -195,9 +485,20 @@ export default function MealDetailPage() {
       </header>
 
       <main className="absolute left-[58px] right-[58px] top-[166px]">
-        <h1 className="text-[28px] font-extrabold text-[#272932] tracking-[-0.05em]">
+        <h1
+          className="text-[28px] text-[#272932] tracking-[-0.05em]"
+          style={{
+            fontWeight: 650,
+          }}
+        >
           {title}
         </h1>
+
+        {isLoading && (
+          <p className="mt-[12px] text-[12px] font-light text-[#8a8c90]">
+            식단 정보를 불러오는 중입니다.
+          </p>
+        )}
 
         {error && (
           <p className="mt-[12px] text-[12px] font-light text-[#ff5b5b]">
@@ -206,17 +507,14 @@ export default function MealDetailPage() {
         )}
 
         <div className="mt-[28px]">
-          <div className="h-[56px] rounded-[13px] border border-[#d7d2d2] px-[22px] flex items-center justify-between">
-            <span className="text-[13px] font-bold text-[#272932] tracking-[-0.02em]">
-              총 열량
-            </span>
+          <NutritionSummaryBox
+            label="총 열량"
+            value={meal.kcal ?? 0}
+            unit="kcal"
+            wide
+          />
 
-            <span className="text-[13px] font-bold text-[#69a80f] tracking-[-0.02em]">
-              {meal.kcal ?? 0} kal
-            </span>
-          </div>
-
-          <div className="mt-[12px] grid grid-cols-3 gap-[12px]">
+          <div className="mt-[12px] grid grid-cols-[1.25fr_1fr_0.85fr] gap-[8px]">
             <NutritionSummaryBox label="탄수화물" value={meal.carbs ?? 0} />
             <NutritionSummaryBox label="단백질" value={meal.protein ?? 0} />
             <NutritionSummaryBox label="지방" value={meal.fat ?? 0} />
@@ -224,16 +522,22 @@ export default function MealDetailPage() {
         </div>
 
         <section className="mt-[34px]">
-          <h2 className="text-[20px] font-extrabold text-[#272932] tracking-[-0.04em]">
-            {meal.label ?? "식단"} 식단
+          <h2
+            className="text-[20px] text-[#272932] tracking-[-0.04em]"
+            style={{
+              fontWeight: 650,
+            }}
+          >
+            {mealLabel} 식단
           </h2>
 
           <div className="mt-[22px] space-y-[4px]">
             {foodItems.length > 0 ? (
               foodItems.map((item) => (
                 <FoodRow
-                  key={item.mealLogItemId ?? item.fallbackKey}
+                  key={item.fallbackKey}
                   item={item}
+                  onOpenDetail={handleOpenFoodDetail}
                   onOpenDelete={setPendingDeleteItem}
                 />
               ))

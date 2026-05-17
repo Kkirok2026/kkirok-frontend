@@ -208,22 +208,87 @@ function DonutChart({ data }) {
   const hasData = Boolean(data);
 
   const totalKcal = data?.totalKcal ?? "";
-  const protein = data?.macros?.protein ?? 0;
-  const fat = data?.macros?.fat ?? 0;
-  const carbs = data?.macros?.carbs ?? 0;
+  const protein = Number(data?.macros?.protein ?? 0);
+  const fat = Number(data?.macros?.fat ?? 0);
+  const carbs = Number(data?.macros?.carbs ?? 0);
 
   const totalMacro = protein + fat + carbs;
+  const hasMacroData = hasData && totalMacro > 0;
 
-  const proteinRatio = totalMacro ? (protein / totalMacro) * 100 : 0;
-  const fatRatio = totalMacro ? (fat / totalMacro) * 100 : 0;
+  const chartSize = 202;
+  const bubbleAreaSize = 260;
+  const center = bubbleAreaSize / 2;
+  const bubbleRadius = 107;
 
-  const gradient = hasData
+  const startAngle = -76;
+
+  const segments = hasMacroData
+    ? [
+        {
+          key: "protein",
+          label: "단백질",
+          value: protein,
+          color: MACRO_COLORS.protein,
+          bubbleSize: 70,
+        },
+        {
+          key: "fat",
+          label: "지방",
+          value: fat,
+          color: MACRO_COLORS.fat,
+          bubbleSize: 70,
+        },
+        {
+          key: "carbs",
+          label: "탄수화물",
+          value: carbs,
+          color: MACRO_COLORS.carbs,
+          bubbleSize: 78,
+        },
+      ]
+    : [];
+
+  let accumulatedAngle = startAngle;
+
+  const computedSegments = segments.map((segment) => {
+    const ratio = segment.value / totalMacro;
+    const angleSize = ratio * 360;
+    const from = accumulatedAngle;
+    const to = accumulatedAngle + angleSize;
+    const mid = from + angleSize / 2;
+
+    accumulatedAngle = to;
+
+    return {
+      ...segment,
+      ratio,
+      from,
+      to,
+      mid,
+    };
+  });
+
+  const gradient = hasMacroData
     ? `conic-gradient(
-        ${MACRO_COLORS.protein} 0 ${proteinRatio}%,
-        ${MACRO_COLORS.fat} ${proteinRatio}% ${proteinRatio + fatRatio}%,
-        ${MACRO_COLORS.carbs} ${proteinRatio + fatRatio}% 100%
+        from ${startAngle}deg,
+        ${computedSegments
+          .map((segment) => {
+            return `${segment.color} ${segment.from - startAngle}deg ${
+              segment.to - startAngle
+            }deg`;
+          })
+          .join(", ")}
       )`
-    : `conic-gradient(${MACRO_COLORS.empty} 0 100%)`;
+    : `conic-gradient(${MACRO_COLORS.empty} 0deg 360deg)`;
+
+  const getBubblePosition = (angleDeg) => {
+    const rad = (angleDeg * Math.PI) / 180;
+
+    return {
+      left: center + Math.sin(rad) * bubbleRadius,
+      top: center - Math.cos(rad) * bubbleRadius,
+    };
+  };
 
   return (
     <section className="mx-[58px] mt-[24px]">
@@ -231,42 +296,62 @@ function DonutChart({ data }) {
         나의 하루 영양
       </h2>
 
-      <div className="relative mt-[30px] h-[260px] flex items-center justify-center">
+      <div
+        className="relative mt-[30px] mx-auto"
+        style={{
+          width: `${bubbleAreaSize}px`,
+          height: `${bubbleAreaSize}px`,
+        }}
+      >
         <div
-          className="relative w-[202px] h-[202px] rounded-full"
-          style={{ background: gradient }}
+          className="absolute left-1/2 top-1/2 rounded-full"
+          style={{
+            width: `${chartSize}px`,
+            height: `${chartSize}px`,
+            transform: "translate(-50%, -50%)",
+            background: gradient,
+          }}
         >
           <div className="absolute left-1/2 top-1/2 w-[108px] h-[108px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white flex items-center justify-center">
             <span className="text-[24px] font-extrabold text-[#6da60f] tracking-[-0.04em]">
-              {hasData ? `${totalKcal} kal` : ""}
+              {hasMacroData ? `${totalKcal} kal` : ""}
             </span>
           </div>
         </div>
 
-        {hasData && (
-          <>
-            <div className="absolute left-[42px] top-[6px] w-[70px] h-[70px] rounded-full bg-white shadow-[0_10px_22px_rgba(0,0,0,0.18)] flex flex-col items-center justify-center">
-              <span className="text-[10px] font-light text-[#777]">단백질</span>
-              <span className="mt-[4px] text-[22px] font-extrabold text-[#272932]">
-                {protein}g
-              </span>
-            </div>
+        {hasMacroData &&
+          computedSegments.map((segment) => {
+            const position = getBubblePosition(segment.mid);
 
-            <div className="absolute right-[16px] top-[28px] w-[70px] h-[70px] rounded-full bg-white shadow-[0_10px_22px_rgba(0,0,0,0.18)] flex flex-col items-center justify-center">
-              <span className="text-[10px] font-light text-[#777]">지방</span>
-              <span className="mt-[4px] text-[22px] font-extrabold text-[#272932]">
-                {fat}g
-              </span>
-            </div>
+            return (
+              <div
+                key={segment.key}
+                className="absolute rounded-full bg-white shadow-[0_10px_22px_rgba(0,0,0,0.18)] flex flex-col items-center justify-center"
+                style={{
+                  width: `${segment.bubbleSize}px`,
+                  height: `${segment.bubbleSize}px`,
+                  left: `${position.left}px`,
+                  top: `${position.top}px`,
+                  transform: "translate(-50%, -50%)",
+                }}
+              >
+                <span className="text-[10px] font-light text-[#777]">
+                  {segment.label}
+                </span>
 
-            <div className="absolute left-[22px] bottom-[10px] w-[78px] h-[78px] rounded-full bg-white shadow-[0_10px_22px_rgba(0,0,0,0.18)] flex flex-col items-center justify-center">
-              <span className="text-[10px] font-light text-[#777]">탄수화물</span>
-              <span className="mt-[4px] text-[22px] font-extrabold text-[#272932]">
-                {carbs}g
-              </span>
-            </div>
-          </>
-        )}
+                <span
+                  className="mt-[4px] text-[#272932] tracking-[-0.04em]"
+                  style={{
+                    fontSize: "22px",
+                    lineHeight: "1",
+                    fontWeight: 500,
+                  }}
+                >
+                  {segment.value}g
+                </span>
+              </div>
+            );
+          })}
       </div>
     </section>
   );
