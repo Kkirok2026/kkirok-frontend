@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import MobileLayout from "../components/layout/MobileLayout";
 import KkirokLogo from "../components/common/KkirokLogo";
 import BottomNavButtons from "../components/common/BottomNavButtons";
+import BottomNav from "../components/layout/BottomNav";
 import {
   addAllergy,
   deleteAllergy,
@@ -304,7 +305,10 @@ export default function ProfileGoalEditPage() {
         onNext={handleSave}
         prevText="이전"
         nextText={isSaving ? "수정 중" : "수정"}
+        bottomClassName="bottom-[112px]"
       />
+
+      <BottomNav />
     </MobileLayout>
   );
 }

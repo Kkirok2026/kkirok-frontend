@@ -3,6 +3,7 @@ export default function BottomButton({
   onClick,
   type = "button",
   className = "",
+  bottomClassName = "bottom-[72px]",
 }) {
   return (
     <button
@@ -13,7 +14,8 @@ export default function BottomButton({
         color: "#ffffff",
       }}
       className={[
-        "absolute left-[58px] right-[58px] bottom-[72px]",
+        "absolute left-[58px] right-[58px]",
+        bottomClassName,
         "h-[60px] rounded-[10px]",
         "flex items-center justify-center",
         "text-[15px] font-bold tracking-[-0.02em]",

@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import MobileLayout from "../components/layout/MobileLayout";
 import KkirokLogo from "../components/common/KkirokLogo";
 import BottomNavButtons from "../components/common/BottomNavButtons";
+import BottomNav from "../components/layout/BottomNav";
 import { getAllergies, getMe } from "../api/userApi";
 
 function cleanDecimal(value) {
@@ -234,7 +235,10 @@ export default function ProfileEditPage() {
       <BottomNavButtons
         onPrev={() => navigate("/profile")}
         onNext={handleNext}
+        bottomClassName="bottom-[112px]"
       />
+
+      <BottomNav />
     </MobileLayout>
   );
 }

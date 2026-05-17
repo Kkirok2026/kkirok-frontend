@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import MobileLayout from "../components/layout/MobileLayout";
 import BottomButton from "../components/common/BottomButton";
 import KkirokCharacter from "../components/common/KkirokCharacter";
+import BottomNav from "../components/layout/BottomNav";
 import { clearAccessToken } from "../api/client";
 import { deleteMe } from "../api/userApi";
 
@@ -51,9 +52,11 @@ export default function DeleteAccountPage() {
         )}
       </main>
 
-      <BottomButton onClick={handleDelete}>
+      <BottomButton onClick={handleDelete} bottomClassName="bottom-[112px]">
         {isDeleting ? "탈퇴 중..." : "탈퇴하기"}
       </BottomButton>
+
+      <BottomNav />
     </MobileLayout>
   );
 }

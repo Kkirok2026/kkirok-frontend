@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import MobileLayout from "../components/layout/MobileLayout";
 import KkirokLogo from "../components/common/KkirokLogo";
 import BottomNav from "../components/layout/BottomNav";
+import CalendarModal from "../components/common/CalendarModal";
 import { getDailySummary, getMealLogsByDate } from "../api/mealLogApi";
 import {
   MEAL_KEY_TO_TYPE,
@@ -42,7 +43,12 @@ function getDayName(date) {
   return date.toLocaleString("en-US", { weekday: "short" }).slice(0, 3);
 }
 
-function DateCarousel({ selectedDate, onSelectDate, currentMonth, onChangeMonth }) {
+function DateCarousel({
+  selectedDate,
+  onOpenCalendar,
+  currentMonth,
+  onChangeMonth,
+}) {
   const scrollRef = useRef(null);
   const daysInMonth = getDaysInMonth(currentMonth);
 
@@ -127,7 +133,7 @@ function DateCarousel({ selectedDate, onSelectDate, currentMonth, onChangeMonth 
             <button
               key={getDateKey(date)}
               type="button"
-              onClick={() => onSelectDate(date)}
+              onClick={() => onOpenCalendar(date)}
               className="shrink-0 w-[46px] h-[62px] rounded-[7px] border flex flex-col items-center justify-center transition"
               style={{
                 backgroundColor: selected ? "#9bb314" : "#f8f8f8",
@@ -455,6 +461,7 @@ export default function HomePage() {
   const [dailyData, setDailyData] = useState(() =>
     toDailyDisplay({ date: selectedKey, totals: {} }, { items: [] })
   );
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -509,6 +516,13 @@ export default function HomePage() {
 
   const handleSelectDate = (date) => {
     setSelectedDate(date);
+    setCurrentMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+  };
+
+  const handleOpenCalendar = (date) => {
+    setSelectedDate(date);
+    setCurrentMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+    setIsCalendarOpen(true);
   };
 
   return (
@@ -525,7 +539,7 @@ export default function HomePage() {
         <DateCarousel
           selectedDate={selectedDate}
           currentMonth={currentMonth}
-          onSelectDate={handleSelectDate}
+          onOpenCalendar={handleOpenCalendar}
           onChangeMonth={handleChangeMonth}
         />
 
@@ -549,6 +563,13 @@ export default function HomePage() {
       </div>
 
       <BottomNav />
+
+      <CalendarModal
+        open={isCalendarOpen}
+        selectedDate={selectedDate}
+        onSelect={handleSelectDate}
+        onClose={() => setIsCalendarOpen(false)}
+      />
     </MobileLayout>
   );
 }

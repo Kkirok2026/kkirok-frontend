@@ -5,6 +5,7 @@ import MobileLayout from "../components/layout/MobileLayout";
 import PageHeader from "../components/layout/PageHeader";
 import BottomNav from "../components/layout/BottomNav";
 import Modal from "../components/common/Modal";
+import CalendarModal from "../components/common/CalendarModal";
 import { addMenuOption } from "../api/mealLogApi";
 import { compareMenus, getDailyMenu } from "../api/menuApi";
 import { getMe } from "../api/userApi";
@@ -53,7 +54,9 @@ export default function UniversityMealPage() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [mealType, setMealType] = useState("LUNCH");
-  const [date] = useState(() => formatDateKey(new Date()));
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const date = formatDateKey(selectedDate);
   const [universityId, setUniversityId] = useState(null);
   const [universityName, setUniversityName] = useState("");
   const [dailyMenu, setDailyMenu] = useState(null);
@@ -168,19 +171,33 @@ export default function UniversityMealPage() {
       );
   }, [dailyMenu]);
 
+  const allOptions = useMemo(() => {
+    return (dailyMenu?.diningPlaces ?? []).flatMap((place) =>
+      (place.options ?? []).map((option) => ({
+        ...option,
+        diningPlaceName: place.diningPlaceName,
+        diningPlaceType: place.diningPlaceType,
+      }))
+    );
+  }, [dailyMenu]);
+
+  const selectableOptions =
+    studentOptions.length > 0 ? studentOptions : allOptions;
+  const shouldCompareWithDormitory = studentOptions.length > 0;
+
   useEffect(() => {
-    if (studentOptions.length === 0) {
+    if (selectableOptions.length === 0) {
       setSelectedOptionId(null);
       return;
     }
 
-    if (!studentOptions.some((option) => option.optionId === selectedOptionId)) {
-      setSelectedOptionId(studentOptions[0].optionId);
+    if (!selectableOptions.some((option) => option.optionId === selectedOptionId)) {
+      setSelectedOptionId(selectableOptions[0].optionId);
     }
-  }, [selectedOptionId, studentOptions]);
+  }, [selectableOptions, selectedOptionId]);
 
   useEffect(() => {
-    if (!selectedOptionId || !universityId) {
+    if (!shouldCompareWithDormitory || !selectedOptionId || !universityId) {
       setCompareResult(null);
       return;
     }
@@ -209,16 +226,17 @@ export default function UniversityMealPage() {
     return () => {
       ignore = true;
     };
-  }, [date, mealType, selectedOptionId, universityId]);
+  }, [date, mealType, selectedOptionId, shouldCompareWithDormitory, universityId]);
 
   const compareItems = compareResult?.items ?? [];
   const selectedOption =
     compareItems.find((item) => item.optionId === selectedOptionId) ||
-    studentOptions.find((item) => item.optionId === selectedOptionId);
-  const comparisonOptions =
-    compareItems.filter((item) => item.optionId !== selectedOptionId).length > 0
+    selectableOptions.find((item) => item.optionId === selectedOptionId);
+  const comparisonOptions = shouldCompareWithDormitory
+    ? compareItems.filter((item) => item.optionId !== selectedOptionId).length > 0
       ? compareItems.filter((item) => item.optionId !== selectedOptionId)
-      : dormitoryOptions;
+      : dormitoryOptions
+    : [];
 
   const handleAddMenu = async () => {
     if (!selectedOption?.optionId || isAdding) return;
@@ -258,10 +276,18 @@ export default function UniversityMealPage() {
         <PageHeader eyebrow="University Meal" title="77ㅣ록" />
 
         {universityName && (
-          <p className="-mt-3 mb-5 text-center text-xs text-neutral-400">
+          <p className="-mt-3 mb-3 text-center text-xs text-neutral-400">
             {universityName}
           </p>
         )}
+
+        <button
+          type="button"
+          onClick={() => setIsCalendarOpen(true)}
+          className="mx-auto mb-5 flex h-[34px] items-center justify-center rounded-full bg-[#f8f8f8] px-[18px] text-[12px] font-bold text-[#272932]"
+        >
+          {date}
+        </button>
 
         <div className="grid grid-cols-2 bg-neutral-50 rounded-full p-2 mb-5">
           <button
@@ -290,9 +316,9 @@ export default function UniversityMealPage() {
           </button>
         </div>
 
-        {studentOptions.length > 0 && (
+        {selectableOptions.length > 0 && (
           <div className="grid grid-cols-4 gap-1 bg-neutral-100 rounded-lg p-1 mb-4">
-            {studentOptions.map((option) => (
+            {selectableOptions.map((option) => (
               <button
                 type="button"
                 key={option.optionId}
@@ -323,7 +349,7 @@ export default function UniversityMealPage() {
           !isResolvingUniversity &&
           !isLoading && (
             <p className="text-xs text-neutral-400 mb-8">
-              선택할 학생식당 메뉴가 없습니다.
+              선택할 식당 메뉴가 없습니다.
             </p>
           )
         )}
@@ -357,6 +383,13 @@ export default function UniversityMealPage() {
         confirmText={isAdding ? "추가 중..." : "추가"}
         onConfirm={handleAddMenu}
         onCancel={() => setOpen(false)}
+      />
+
+      <CalendarModal
+        open={isCalendarOpen}
+        selectedDate={selectedDate}
+        onSelect={setSelectedDate}
+        onClose={() => setIsCalendarOpen(false)}
       />
     </MobileLayout>
   );

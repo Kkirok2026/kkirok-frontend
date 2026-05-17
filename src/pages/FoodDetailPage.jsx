@@ -7,6 +7,7 @@ import {
 } from "react-router-dom";
 
 import MobileLayout from "../components/layout/MobileLayout";
+import BottomNav from "../components/layout/BottomNav";
 import Button from "../components/common/Button";
 import KkirokLogo from "../components/common/KkirokLogo";
 
@@ -152,7 +153,7 @@ export default function FoodDetailPage() {
       if (!hasValidFoodId) {
         if (!location.state?.food) {
           setFood({
-            name: routeFoodName || "감자샐러드",
+            name: routeFoodName || "음식",
             nutrients: {},
           });
         }
@@ -233,6 +234,11 @@ export default function FoodDetailPage() {
         },
       });
     } catch (addError) {
+      if (addError.status === 401) {
+        navigate("/login", { replace: true });
+        return;
+      }
+
       setError(addError.message || "식단에 추가하지 못했습니다.");
     } finally {
       setIsAdding(false);
@@ -291,14 +297,16 @@ export default function FoodDetailPage() {
         )}
       </main>
 
-      <div className="absolute left-8 right-8 bottom-20">
+      <div className="absolute left-8 right-8 bottom-[104px] z-50">
         <Button
           disabled={!food || isAdding || !hasValidFoodId}
           onClick={handleAddFood}
         >
-          {isAdding ? "추가 중..." : "식단에 추가"}
+          {isAdding ? "추가 중..." : "식단에 추가하기"}
         </Button>
       </div>
+
+      <BottomNav />
     </MobileLayout>
   );
 }

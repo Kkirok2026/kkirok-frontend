@@ -3,9 +3,15 @@ export default function BottomNavButtons({
     onNext,
     prevText = "이전",
     nextText = "다음",
+    bottomClassName = "bottom-[72px]",
   }) {
     return (
-      <div className="absolute left-[58px] right-[58px] bottom-[72px] flex gap-[10px]">
+      <div
+        className={[
+          "absolute left-[58px] right-[58px] flex gap-[10px]",
+          bottomClassName,
+        ].join(" ")}
+      >
         <button
           type="button"
           onClick={onPrev}

@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import MobileLayout from "../components/layout/MobileLayout";
 import KkirokLogo from "../components/common/KkirokLogo";
-
+import BottomNav from "../components/layout/BottomNav";
 import { getMealLog, setMealLogItemExcluded } from "../api/mealLogApi";
 import {
   MEAL_KEY_TO_TYPE,
@@ -19,66 +19,6 @@ const LOCAL_MEAL_LABELS = {
   lunch: "점심",
   dinner: "저녁",
   snack: "간식",
-};
-
-const FOOD_DATA = {
-  감자샐러드: {
-    name: "감자샐러드",
-    foodName: "감자샐러드",
-    nutrients: {
-      carbs: "100gr",
-      sugar: "3osh qashiq",
-      sodium: "2osh qashiq",
-      protein: "2ta element",
-      fat: "100gr",
-    },
-  },
-  자두에이드: {
-    name: "자두에이드",
-    foodName: "자두에이드",
-    nutrients: {
-      carbs: "100gr",
-      sugar: "3osh qashiq",
-      sodium: "2osh qashiq",
-      protein: "2ta element",
-      fat: "100gr",
-    },
-  },
-};
-
-const DEFAULT_MEAL_DATA = {
-  breakfast: {
-    label: "아침",
-    kcal: 760,
-    carbs: 760,
-    protein: 760,
-    fat: 760,
-    foods: ["감자샐러드", "자두에이드"],
-  },
-  lunch: {
-    label: "점심",
-    kcal: 1260,
-    carbs: 280,
-    protein: 75,
-    fat: 80,
-    foods: ["감자샐러드", "자두에이드"],
-  },
-  dinner: {
-    label: "저녁",
-    kcal: 860,
-    carbs: 80,
-    protein: 80,
-    fat: 80,
-    foods: ["감자샐러드", "자두에이드"],
-  },
-  snack: {
-    label: "간식",
-    kcal: 76,
-    carbs: 80,
-    protein: 80,
-    fat: 80,
-    foods: ["감자샐러드", "자두에이드"],
-  },
 };
 
 function getMealLabel({ mealKey, mealType, label }) {
@@ -107,23 +47,7 @@ function emptyMeal(mealKey) {
 }
 
 function fallbackMeal(mealKey) {
-  const mealType = MEAL_KEY_TO_TYPE[mealKey] || "BREAKFAST";
-  const fallback = DEFAULT_MEAL_DATA[mealKey];
-
-  if (!fallback) return emptyMeal(mealKey);
-
-  return {
-    ...emptyMeal(mealKey),
-    ...fallback,
-    mealKey,
-    mealType,
-    label: getMealLabel({
-      mealKey,
-      mealType,
-      label: fallback.label,
-    }),
-    items: [],
-  };
+  return emptyMeal(mealKey);
 }
 
 function NutritionSummaryBox({ label, value, unit = "g", wide = false }) {
@@ -397,9 +321,9 @@ export default function MealDetailPage() {
   const handleOpenFoodDetail = (item) => {
     const itemName = item.itemName;
     const itemFoodId = item.foodId;
-    const routeParam = itemFoodId
-      ? String(itemFoodId)
-      : encodeURIComponent(itemName);
+    const detailPath = itemFoodId
+      ? `/foods/${itemFoodId}`
+      : `/food-detail/${encodeURIComponent(itemName)}`;
 
     const query = new URLSearchParams();
 
@@ -417,9 +341,9 @@ export default function MealDetailPage() {
 
     const queryString = query.toString();
 
-    navigate(`/food-detail/${routeParam}${queryString ? `?${queryString}` : ""}`, {
+    navigate(`${detailPath}${queryString ? `?${queryString}` : ""}`, {
       state: {
-        food: item.food || FOOD_DATA[itemName] || {
+        food: item.food || {
           name: itemName,
           foodName: itemName,
         },
@@ -557,6 +481,8 @@ export default function MealDetailPage() {
           onDelete={handleDelete}
         />
       )}
+
+      <BottomNav />
     </MobileLayout>
   );
 }

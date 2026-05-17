@@ -133,9 +133,9 @@ export default function ProfilePage() {
             <button
               type="button"
               onClick={() => navigate("/profile/edit")}
-              className="ml-auto h-[30px] w-[83px] rounded-full bg-[#272932] text-[12px] font-medium text-white"
+              className="ml-auto h-[32px] w-[96px] rounded-full bg-[#272932] text-[12px] font-bold text-white shadow-[0_10px_18px_rgba(39,41,50,0.18)]"
             >
-              수정
+              프로필 수정
             </button>
           </div>
 
