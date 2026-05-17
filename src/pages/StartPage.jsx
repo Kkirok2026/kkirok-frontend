@@ -1,19 +1,29 @@
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+
+import MobileLayout from "../components/layout/MobileLayout";
+import KkirokCharacter from "../components/common/KkirokCharacter";
+import BottomButton from "../components/common/BottomButton";
 
 export default function StartPage() {
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#F4F7F2]">
-      <h1 className="text-4xl font-bold text-green-700 mb-3">끼록</h1>
-      <p className="text-sm text-neutral-600 mb-8">
-        나에게 맞는 식단을 기록하고 추천받아요
-      </p>
+  const navigate = useNavigate();
 
-      <Link
-        to="/login"
-        className="w-full max-w-xs py-3 rounded-xl bg-green-600 text-white text-center font-semibold"
-      >
+  return (
+    <MobileLayout>
+      <main className="absolute left-0 right-0 top-[285px] flex flex-col items-center">
+        <KkirokCharacter
+          variant="intro"
+          alt="끼록 오리 캐릭터"
+          className="w-[250px] h-auto object-contain"
+        />
+
+        <p className="mt-[29px] text-[18px] leading-[26px] font-light text-[#272932] tracking-[-0.03em]">
+          당신의 끼니를 기록하세요
+        </p>
+      </main>
+
+      <BottomButton onClick={() => navigate("/login")}>
         시작하기
-      </Link>
-    </div>
+      </BottomButton>
+    </MobileLayout>
   );
 }
