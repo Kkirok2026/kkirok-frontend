@@ -3,11 +3,11 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import MobileLayout from "../components/layout/MobileLayout";
 import KkirokLogo from "../components/common/KkirokLogo";
-import BottomNav from "../components/layout/BottomNav";
 import { getMealLog, setMealLogItemExcluded } from "../api/mealLogApi";
 import {
   MEAL_KEY_TO_TYPE,
   MEAL_LABELS as API_MEAL_LABELS,
+  formatDateKey,
   toMealDisplay,
 } from "../utils/mealData";
 
@@ -55,15 +55,17 @@ function NutritionSummaryBox({ label, value, unit = "g", wide = false }) {
     <div
       className={[
         "h-[50px] rounded-[13px] border border-[#d7d2d2]",
-        "px-[10px] flex items-center justify-center gap-[6px]",
-        wide ? "justify-between px-[22px]" : "",
+        "flex items-center",
+        wide
+          ? "justify-between px-[24px]"
+          : "justify-center gap-[10px] px-[10px]",
       ].join(" ")}
     >
-      <span className="text-[10px] font-bold text-[#272932] tracking-[-0.03em] whitespace-nowrap">
+      <span className="whitespace-nowrap text-[12px] font-bold text-[#272932] tracking-[-0.03em]">
         {label}
       </span>
 
-      <span className="text-[10px] font-bold text-[#69a80f] tracking-[-0.03em] whitespace-nowrap">
+      <span className="whitespace-nowrap text-[12px] font-bold text-[#69a80f] tracking-[-0.03em]">
         {value} {unit}
       </span>
     </div>
@@ -86,13 +88,7 @@ function getFoodName(item) {
 function getFoodId(item) {
   if (!item || typeof item === "string") return null;
 
-  return (
-    item.foodId ||
-    item.food?.foodId ||
-    item.food?.id ||
-    item.id ||
-    null
-  );
+  return item.foodId || item.food?.foodId || item.food?.id || item.id || null;
 }
 
 function normalizeFoodItem(item, index) {
@@ -122,7 +118,7 @@ function normalizeFoodItem(item, index) {
 
 function FoodRow({ item, onOpenDetail, onOpenDelete }) {
   return (
-    <div className="h-[34px] flex items-center">
+    <div className="flex h-[34px] items-center">
       <span className="flex-1 text-left text-[17px] font-normal text-[#272932] tracking-[-0.03em]">
         {item.itemName}
       </span>
@@ -130,26 +126,26 @@ function FoodRow({ item, onOpenDetail, onOpenDelete }) {
       <button
         type="button"
         onClick={() => onOpenDetail(item)}
-        className="w-[20px] h-[20px] flex items-center justify-center"
+        className="flex h-[20px] w-[20px] items-center justify-center"
         aria-label={`${item.itemName} 상세 보기`}
       >
         <img
           src={ArrowIcon}
           alt=""
-          className="w-[18px] h-[18px] object-contain"
+          className="h-[18px] w-[18px] object-contain"
         />
       </button>
 
       <button
         type="button"
         onClick={() => onOpenDelete(item)}
-        className="ml-[12px] w-[20px] h-[20px] flex items-center justify-center"
+        className="ml-[12px] flex h-[20px] w-[20px] items-center justify-center"
         aria-label={`${item.itemName} 삭제`}
       >
         <img
           src={CloseSquareIcon}
           alt=""
-          className="w-[18px] h-[18px] object-contain"
+          className="h-[18px] w-[18px] object-contain"
         />
       </button>
     </div>
@@ -211,7 +207,7 @@ function DeleteModal({ isDeleting, onClose, onDelete }) {
           type="button"
           onClick={onDelete}
           disabled={isDeleting}
-          className="mt-[34px] w-full rounded-[7px] flex items-center justify-center text-white tracking-[-0.02em] disabled:opacity-50"
+          className="mt-[34px] flex w-full items-center justify-center rounded-[7px] text-white tracking-[-0.02em] disabled:opacity-50"
           style={{
             height: "40px",
             backgroundColor: "#272932",
@@ -279,6 +275,7 @@ export default function MealDetailPage() {
 
       try {
         const response = await getMealLog(initialMeal.mealLogId);
+
         if (!ignore) {
           setMeal(toMealDisplay(response, mealKey));
         }
@@ -318,17 +315,20 @@ export default function MealDetailPage() {
     );
   }, [meal.items, meal.foods]);
 
+  const recordDate = location.state?.date || formatDateKey(new Date());
+
   const handleOpenFoodDetail = (item) => {
     const itemName = item.itemName;
     const itemFoodId = item.foodId;
+
     const detailPath = itemFoodId
       ? `/foods/${itemFoodId}`
       : `/food-detail/${encodeURIComponent(itemName)}`;
 
     const query = new URLSearchParams();
 
-    if (location.state?.date) {
-      query.set("date", location.state.date);
+    if (recordDate) {
+      query.set("date", recordDate);
     }
 
     if (meal.mealType) {
@@ -348,7 +348,26 @@ export default function MealDetailPage() {
           foodName: itemName,
         },
         meal,
-        date: location.state?.date,
+        date: recordDate,
+      },
+    });
+  };
+
+  const handleOpenSearch = () => {
+    const targetMealKey = meal.mealKey || mealKey;
+    const targetMealType =
+      meal.mealType || MEAL_KEY_TO_TYPE[targetMealKey] || "BREAKFAST";
+
+    const searchParams = new URLSearchParams({
+      mealType: targetMealType,
+      date: recordDate,
+    });
+
+    navigate(`/search?${searchParams.toString()}`, {
+      state: {
+        mealKey: targetMealKey,
+        meal,
+        date: recordDate,
       },
     });
   };
@@ -364,7 +383,9 @@ export default function MealDetailPage() {
         items: (prev.items ?? []).filter(
           (item) => getFoodName(item) !== targetName
         ),
-        foods: (prev.foods ?? []).filter((food) => getFoodName(food) !== targetName),
+        foods: (prev.foods ?? []).filter(
+          (food) => getFoodName(food) !== targetName
+        ),
       }));
 
       setPendingDeleteItem(null);
@@ -392,23 +413,47 @@ export default function MealDetailPage() {
 
   return (
     <MobileLayout>
-      <header className="absolute left-0 right-0 top-[58px] flex flex-col items-center">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="absolute left-[46px] top-[0px] w-[28px] h-[28px] rounded-[7px] bg-[#f8f8f8] text-[#272932] flex items-center justify-center text-[20px] leading-none"
+      {/* 뒤로가기 버튼: header 밖에 따로 빼고, inline style로 회색 정사각형 강제 적용 */}
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
+        aria-label="이전 페이지로 이동"
+        className="absolute z-30 flex items-center justify-center transition active:scale-[0.96]"
+        style={{
+          left: "24px",
+  top: "60px",
+  width: "34px",
+  height: "34px",
+  padding: 0,
+  borderRadius: "9px",
+  backgroundColor: "#f4f4f4",
+  border: "1px solid #eeeeee",
+  boxShadow: "0 1px 4px rgba(0, 0, 0, 0.04)",
+  color: "#272932",
+        }}
+      >
+        <span
+          style={{
+            display: "block",
+            fontSize: "24px",
+            lineHeight: "1",
+            fontWeight: 300,
+            transform: "translateY(-2px)",
+          }}
         >
           ‹
-        </button>
+        </span>
+      </button>
 
-        <p className="text-[15px] leading-none font-normal text-[#272932] tracking-[-0.02em]">
+      <header className="absolute left-0 right-0 top-[58px] flex flex-col items-center">
+        <p className="text-[15px] font-normal leading-none text-[#272932] tracking-[-0.02em]">
           Meal details
         </p>
 
         <KkirokLogo className="mt-[5px]" />
       </header>
 
-      <main className="absolute left-[58px] right-[58px] top-[166px]">
+      <main className="absolute left-[24px] right-[24px] top-[166px]">
         <h1
           className="text-[28px] text-[#272932] tracking-[-0.05em]"
           style={{
@@ -438,7 +483,7 @@ export default function MealDetailPage() {
             wide
           />
 
-          <div className="mt-[12px] grid grid-cols-[1.25fr_1fr_0.85fr] gap-[8px]">
+          <div className="mt-[12px] grid grid-cols-3 gap-[8px]">
             <NutritionSummaryBox label="탄수화물" value={meal.carbs ?? 0} />
             <NutritionSummaryBox label="단백질" value={meal.protein ?? 0} />
             <NutritionSummaryBox label="지방" value={meal.fat ?? 0} />
@@ -446,14 +491,46 @@ export default function MealDetailPage() {
         </div>
 
         <section className="mt-[34px]">
-          <h2
-            className="text-[20px] text-[#272932] tracking-[-0.04em]"
-            style={{
-              fontWeight: 650,
-            }}
-          >
-            {mealLabel} 식단
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2
+              className="text-[20px] text-[#272932] tracking-[-0.04em]"
+              style={{
+                fontWeight: 650,
+              }}
+            >
+              {mealLabel} 식단
+            </h2>
+
+            {/* + 버튼: 빨간 테두리 박스 강제 적용 */}
+            <button
+              type="button"
+              onClick={handleOpenSearch}
+              aria-label={`${mealLabel} 식단에 음식 추가`}
+              className="flex shrink-0 items-center justify-center transition active:scale-[0.95]"
+              style={{
+                width: "18px",
+                height: "18px",
+                padding: 0,
+                borderRadius: "5px",
+                border: "1.5px solid #ff3b30",
+                backgroundColor: "#ffffff",
+                color: "#ff3b30",
+                fontSize: "17px",
+                fontWeight: 400,
+                lineHeight: "1",
+                transform: "translateY(-2px)",
+              }}
+            >
+              <span
+                style={{
+                  display: "block",
+                  transform: "translateY(-1px)",
+                }}
+              >
+                +
+              </span>
+            </button>
+          </div>
 
           <div className="mt-[22px] space-y-[4px]">
             {foodItems.length > 0 ? (
@@ -481,8 +558,6 @@ export default function MealDetailPage() {
           onDelete={handleDelete}
         />
       )}
-
-      <BottomNav />
     </MobileLayout>
   );
 }

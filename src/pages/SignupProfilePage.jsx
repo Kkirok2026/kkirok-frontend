@@ -176,9 +176,8 @@ export default function SignupProfilePage() {
   };
 
   const canGoNext =
-    height.trim().length > 0 &&
-    weight.trim().length > 0 &&
-    age.trim().length > 0;
+  height.trim().length > 0 &&
+  weight.trim().length > 0;
 
   const handlePrev = () => {
     navigate("/signup/create", {
@@ -196,7 +195,7 @@ export default function SignupProfilePage() {
   const handleNext = () => {
     if (!canGoNext) return;
 
-    navigate("/signup/allergy", {
+    navigate("/signup/goal", {
       state: {
         ...previousState,
         height,
@@ -261,7 +260,11 @@ export default function SignupProfilePage() {
         </div>
       </main>
 
-      <BottomNavButtons onPrev={handlePrev} onNext={handleNext} />
+      <BottomNavButtons
+  onPrev={handlePrev}
+  onNext={handleNext}
+  nextDisabled={!canGoNext}
+/>
     </MobileLayout>
   );
 }

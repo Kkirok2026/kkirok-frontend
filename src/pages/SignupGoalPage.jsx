@@ -111,7 +111,7 @@ export default function SignupGoalPage() {
   };
 
   const handlePrev = () => {
-    navigate("/signup/allergy", {
+    navigate("/signup/profile", {
       state: {
         ...previousState,
         goalWeight,

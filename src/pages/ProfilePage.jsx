@@ -6,17 +6,15 @@ import BottomNav from "../components/layout/BottomNav";
 import Modal from "../components/common/Modal";
 import { clearAccessToken } from "../api/client";
 import { logout } from "../api/authApi";
-import { getAllergies, getMe } from "../api/userApi";
+import { getMe } from "../api/userApi";
 
 import ProfileImage from "../assets/icons/Vector.svg";
 import IconProfile from "../assets/icons/Icon-Profile.svg";
 import WorkoutProgressIcon from "../assets/icons/Workout-Progress.svg";
-import CheckIcon from "../assets/icons/Check.svg";
 
 const PROFILE_INFO_ICONS = {
   targetWeight: IconProfile,
   targetPeriod: WorkoutProgressIcon,
-  allergy: CheckIcon,
 };
 
 function valueOrDash(value, suffix = "") {
@@ -73,10 +71,6 @@ function periodLabel(profile) {
   return `${value} month`;
 }
 
-function allergyLabel(items) {
-  if (!items.length) return "등록된 알레르기 없음";
-  return items.map((allergy) => allergy.name).filter(Boolean).join(", ");
-}
 
 function StatCard({ label, value }) {
   return (
@@ -118,7 +112,6 @@ export default function ProfilePage() {
   const location = useLocation();
 
   const [me, setMe] = useState(null);
-  const [allergies, setAllergies] = useState([]);
   const [error, setError] = useState("");
   const [modal, setModal] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -130,15 +123,11 @@ export default function ProfilePage() {
       setError("");
 
       try {
-        const [meResponse, allergyResponse] = await Promise.all([
-          getMe(),
-          getAllergies(),
-        ]);
+        const meResponse = await getMe();
 
-        if (ignore) return;
+if (ignore) return;
 
-        setMe(meResponse);
-        setAllergies(allergyResponse?.items ?? []);
+setMe(meResponse);
       } catch (loadError) {
         if (ignore) return;
 
@@ -183,8 +172,6 @@ export default function ProfilePage() {
         weight: `${profile.weightKg ?? ""}`,
         age: `${me?.age ?? ""}`,
         gender: profile.gender || "FEMALE",
-        allergies,
-        allergyText: allergyLabel(allergies),
         targetWeight: `${profile.targetWeightKg ?? ""}`,
         periodValue: `${targetPeriodValue ?? ""}`,
         periodUnit:
@@ -231,9 +218,9 @@ export default function ProfilePage() {
               type="button"
               onClick={handleEdit}
               style={{ backgroundColor: "#272932", color: "#ffffff" }}
-              className="ml-auto flex h-[30px] w-[84px] shrink-0 items-center justify-center rounded-full shadow-[0_8px_16px_rgba(39,41,50,0.16)]"
+              className="ml-auto flex h-[24px] w-[67px] shrink-0 items-center justify-center rounded-full shadow-[0_8px_16px_rgba(39,41,50,0.16)]"
             >
-              <span className="block h-[18px] w-[23px] text-center text-[12px] font-normal leading-[18px] text-white">
+              <span className="block h-[18px] w-[23px] text-center text-[11px] font-normal leading-[18px] text-white">
                 수정
               </span>
             </button>
@@ -266,24 +253,17 @@ export default function ProfilePage() {
             title="목표 기간"
             value={periodLabel(profile)}
           />
-
-          <ProfileInfoCard
-            iconSrc={PROFILE_INFO_ICONS.allergy}
-            iconAlt="알러지"
-            title="알러지"
-            value={allergyLabel(allergies)}
-          />
         </section>
 
-        <div className="mt-[64px] flex justify-between px-[2px] text-[10px] font-light text-[#8a8c90]">
-          <button type="button" onClick={() => setModal("logout")}>
-            로그아웃
-          </button>
+        <div className="absolute bottom-[112px] left-[49px] right-[49px] flex justify-between text-[11px] font-light text-[#8a8c90]">
+  <button type="button" onClick={() => setModal("logout")}>
+    로그아웃
+  </button>
 
-          <button type="button" onClick={() => navigate("/profile/delete")}>
-            회원탈퇴
-          </button>
-        </div>
+  <button type="button" onClick={() => navigate("/profile/delete")}>
+    회원탈퇴
+  </button>
+</div>
       </div>
 
       <BottomNav />
