@@ -377,25 +377,25 @@ function MealCard({ meal, onClick }) {
       </p>
 
       {hasData && (
-        <>
-          <p className="mt-[39px] text-[18px] leading-none font-bold text-[#6da60f] tracking-[-0.04em]">
-            {meal.kcal} kal
+        <div className="absolute left-[16px] right-[16px] top-[48px]">
+          <p className="text-[17px] leading-none font-bold text-[#6da60f] tracking-[-0.04em]">
+            {meal.kcal ?? 0} kcal
           </p>
 
-          <div className="mt-[6px] h-[1px] w-[72px] bg-[#e2e2e2]" />
+          <div className="mt-[6px] h-[1px] w-[74px] bg-[#e2e2e2]" />
 
-          <div className="mt-[7px] space-y-[3px]">
-            <p className="text-[8px] font-light text-[#6f7075] tracking-[-0.02em]">
-              탄수화물 : {meal.carbs}g
+          <div className="mt-[7px] space-y-[4px]">
+            <p className="text-[8px] leading-[1.15] font-light text-[#6f7075] tracking-[-0.02em]">
+              탄수화물 : {meal.carbs ?? 0}g
             </p>
-            <p className="text-[8px] font-light text-[#6f7075] tracking-[-0.02em]">
-              단백질 : {meal.protein}g
+            <p className="text-[8px] leading-[1.15] font-light text-[#6f7075] tracking-[-0.02em]">
+              단백질 : {meal.protein ?? 0}g
             </p>
-            <p className="text-[8px] font-light text-[#6f7075] tracking-[-0.02em]">
-              지방 : {meal.fat}g
+            <p className="text-[8px] leading-[1.15] font-light text-[#6f7075] tracking-[-0.02em]">
+              지방 : {meal.fat ?? 0}g
             </p>
           </div>
-        </>
+        </div>
       )}
     </button>
   );
@@ -416,33 +416,33 @@ function MealRecords({ dailyData, selectedDateKey }) {
       <div className="mt-[24px] grid grid-cols-2 gap-x-[28px] gap-y-[30px]">
         {Object.entries(meals).map(([mealKey, meal]) => (
           <MealCard
-            key={mealKey}
-            meal={meal}
-            onClick={() => {
-              if (meal.mealLogId) {
-                navigate(`/meal-details/${mealKey}`, {
-                  state: {
-                    mealKey,
-                    meal,
-                    date: recordDate,
-                  },
-                });
-                return;
-              }
-
-              const searchParams = new URLSearchParams({
-                mealType: meal.mealType || MEAL_KEY_TO_TYPE[mealKey],
-                date: recordDate,
-              });
-
-              navigate(`/search?${searchParams.toString()}`, {
+          key={mealKey}
+          meal={meal}
+          onClick={() => {
+            if (meal.mealLogId) {
+              navigate(`/meal-details/${mealKey}`, {
                 state: {
                   mealKey,
                   meal,
+                  date: recordDate,
                 },
               });
-            }}
-          />
+              return;
+            }
+        
+            const searchParams = new URLSearchParams({
+              mealType: meal.mealType || MEAL_KEY_TO_TYPE[mealKey],
+              date: recordDate,
+            });
+        
+            navigate(`/search?${searchParams.toString()}`, {
+              state: {
+                mealKey,
+                meal,
+              },
+            });
+          }}
+        />
         ))}
       </div>
     </section>

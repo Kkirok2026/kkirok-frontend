@@ -7,8 +7,6 @@ import {
 } from "react-router-dom";
 
 import MobileLayout from "../components/layout/MobileLayout";
-import BottomNav from "../components/layout/BottomNav";
-import Button from "../components/common/Button";
 import KkirokLogo from "../components/common/KkirokLogo";
 
 import { getFood } from "../api/foodApi";
@@ -35,41 +33,43 @@ const NUTRIENT_META = [
     key: "carbs",
     label: "탄수화물",
     icon: CarbsIcon,
-    apiKey: "carbG",
-    legacyKey: "carbs",
+    apiKeys: ["carbG", "carbs", "carbohydrateG", "carbohydrate"],
     unit: "g",
   },
   {
     key: "sugar",
     label: "당",
     icon: SugarIcon,
-    apiKey: "sugarG",
-    legacyKey: "sugar",
+    apiKeys: ["sugarG", "sugar", "sugarsG", "sugars"],
     unit: "g",
   },
   {
     key: "sodium",
     label: "나트륨",
     icon: SodiumIcon,
-    apiKey: "sodiumMg",
-    legacyKey: "sodium",
+    apiKeys: ["sodiumMg", "sodium", "natriumMg"],
     unit: "mg",
   },
   {
     key: "protein",
     label: "단백질",
     icon: ProteinIcon,
-    apiKey: "proteinG",
-    legacyKey: "protein",
+    apiKeys: ["proteinG", "protein"],
     unit: "g",
   },
   {
     key: "fat",
     label: "지방",
     icon: FatIcon,
-    apiKey: "fatG",
-    legacyKey: "fat",
+    apiKeys: ["fatG", "fat", "totalFatG"],
     unit: "g",
+  },
+  {
+    key: "cholesterol",
+    label: "콜레스테롤",
+    icon: SugarIcon,
+    apiKeys: ["cholesterolMg", "cholesterol"],
+    unit: "mg",
   },
 ];
 
@@ -97,22 +97,68 @@ async function ensureMealLog({ mealLogId, date, mealType }) {
   }
 }
 
+function readNumberValue(source, keys) {
+  for (const key of keys) {
+    const value = source?.[key];
+
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+
+    if (typeof value === "string" && value.trim() !== "") {
+      const number = Number(value);
+      if (Number.isFinite(number)) return number;
+    }
+  }
+
+  return 0;
+}
+
+function readRawValue(source, keys) {
+  for (const key of keys) {
+    const value = source?.[key];
+
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+
+    if (typeof value === "string" && value.trim() !== "") {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+function formatNutrientValue(rawValue, unit) {
+  if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
+    return `${toRounded(rawValue)}${unit}`;
+  }
+
+  if (typeof rawValue === "string" && rawValue.trim() !== "") {
+    const hasUnit = /[a-zA-Z가-힣]/.test(rawValue);
+    return hasUnit ? rawValue : `${rawValue}${unit}`;
+  }
+
+  return `0${unit}`;
+}
+
 function NutrientIconCard({ icon, label, value }) {
   return (
     <div className="w-[68px]">
-      <div className="h-[68px] rounded-[9px] bg-[#f8f8f8] flex items-center justify-center">
+      <div className="flex h-[68px] items-center justify-center rounded-[9px] bg-[#f8f8f8]">
         <img
           src={icon}
           alt={label}
-          className="max-w-[48px] max-h-[48px] object-contain"
+          className="max-h-[48px] max-w-[48px] object-contain"
         />
       </div>
 
-      <p className="mt-[8px] text-[11px] leading-none font-bold text-[#272932] tracking-[-0.02em]">
+      <p className="mt-[8px] text-[11px] font-bold leading-none text-[#272932] tracking-[-0.02em]">
         {label}
       </p>
 
-      <p className="mt-[6px] text-[10px] leading-none font-light text-[#6f7075] tracking-[-0.02em]">
+      <p className="mt-[7px] text-[10px] font-light leading-none text-[#6f7075] tracking-[-0.02em]">
         {value}
       </p>
     </div>
@@ -184,28 +230,39 @@ export default function FoodDetailPage() {
     };
   }, [foodId, hasValidFoodId, location.state?.food, routeFoodName]);
 
-  const nutrients = useMemo(() => {
+  const flatFoodData = useMemo(() => {
     const totals = food?.nutrients ?? {};
 
+    return {
+      ...food,
+      ...totals,
+    };
+  }, [food]);
+
+  const nutrients = useMemo(() => {
     return NUTRIENT_META.map((item) => {
-      const rawValue = totals[item.apiKey] ?? totals[item.legacyKey];
-
-      let value = `0${item.unit}`;
-
-      if (typeof rawValue === "number") {
-        value = `${toRounded(rawValue)}${item.unit}`;
-      } else if (typeof rawValue === "string" && rawValue.trim() !== "") {
-        value = rawValue;
-      }
+      const rawValue = readRawValue(flatFoodData, item.apiKeys);
 
       return {
         ...item,
-        value,
+        value: formatNutrientValue(rawValue, item.unit),
       };
     });
-  }, [food]);
+  }, [flatFoodData]);
 
   const foodName = food?.foodName ?? food?.name ?? routeFoodName ?? "음식";
+
+  const calories = useMemo(() => {
+    return readNumberValue(flatFoodData, [
+      "caloriesKcal",
+      "calorieKcal",
+      "energyKcal",
+      "kcal",
+      "calories",
+      "calorie",
+      "energy",
+    ]);
+  }, [flatFoodData]);
 
   const handleAddFood = async () => {
     if (!hasValidFoodId || isAdding) return;
@@ -247,66 +304,79 @@ export default function FoodDetailPage() {
 
   return (
     <MobileLayout>
-      <header className="absolute left-0 right-0 top-[58px] flex flex-col items-center">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="absolute left-[46px] top-[0px] w-[28px] h-[28px] rounded-[7px] bg-[#f8f8f8] text-[#272932] flex items-center justify-center text-[20px] leading-none"
-        >
-          ‹
-        </button>
+      <div className="absolute inset-0 bg-white">
+        <header className="absolute left-0 right-0 top-[58px] flex flex-col items-center">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            aria-label="이전 페이지로 이동"
+            className="absolute left-[58px] top-[0px] flex h-[28px] w-[28px] items-center justify-center rounded-[7px] bg-[#f8f8f8] text-[#272932] transition active:scale-[0.96]"
+          >
+            <span className="translate-y-[-1px] text-[20px] font-light leading-none">
+              ‹
+            </span>
+          </button>
 
-        <p className="text-[15px] leading-none font-normal text-[#272932] tracking-[-0.02em]">
-          Meal details
-        </p>
-
-        <KkirokLogo className="mt-[5px]" />
-      </header>
-
-      <main className="absolute left-[58px] right-[58px] top-[166px]">
-        {isLoading && (
-          <p className="text-xs text-neutral-400">
-            음식 정보를 불러오는 중입니다.
+          <p className="text-[15px] font-normal leading-none text-[#272932] tracking-[-0.02em]">
+            Meal details
           </p>
-        )}
 
-        {error && <p className="mb-5 text-xs text-[#ff5b5b]">{error}</p>}
+          <KkirokLogo className="mt-[5px]" />
+        </header>
 
-        {!isLoading && food && (
-          <>
-            <h1
-              className="text-[28px] text-[#272932] tracking-[-0.05em]"
-              style={{
-                fontWeight: 650,
-              }}
-            >
-              {foodName}
-            </h1>
+        <main className="absolute left-[58px] right-[58px] top-[166px]">
+          {isLoading && (
+            <p className="text-[12px] font-light text-[#8a8c90]">
+              음식 정보를 불러오는 중입니다.
+            </p>
+          )}
 
-            <div className="mt-[28px] grid grid-cols-4 gap-x-[14px] gap-y-[34px]">
-              {nutrients.map((item) => (
-                <NutrientIconCard
-                  key={item.key}
-                  icon={item.icon}
-                  label={item.label}
-                  value={item.value}
-                />
-              ))}
-            </div>
-          </>
-        )}
-      </main>
+          {error && (
+            <p className="mb-[18px] text-[12px] font-light text-[#ff5b5b]">
+              {error}
+            </p>
+          )}
 
-      <div className="absolute left-8 right-8 bottom-[104px] z-50">
-        <Button
-          disabled={!food || isAdding || !hasValidFoodId}
-          onClick={handleAddFood}
-        >
-          {isAdding ? "추가 중..." : "식단에 추가하기"}
-        </Button>
+          {!isLoading && food && (
+            <>
+              <h1
+                className="text-[22px] leading-[1.15] text-[#272932] tracking-[-0.05em]"
+                style={{
+                  fontWeight: 650,
+                }}
+              >
+                {foodName}
+              </h1>
+
+              <p className="mt-[24px] text-[14px] font-bold leading-none text-[#272932] tracking-[-0.03em]">
+                {toRounded(calories)} kcal
+              </p>
+
+              <div className="mt-[30px] grid grid-cols-4 gap-x-[14px] gap-y-[34px]">
+                {nutrients.map((item) => (
+                  <NutrientIconCard
+                    key={item.key}
+                    icon={item.icon}
+                    label={item.label}
+                    value={item.value}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </main>
+
+        <div className="absolute bottom-[120px] left-1/2 z-30 w-[260px] -translate-x-1/2">
+          <button
+            type="button"
+            disabled={!food || isAdding || !hasValidFoodId}
+            onClick={handleAddFood}
+            className="h-[56px] w-full rounded-[10px] bg-black text-[15px] font-bold text-white tracking-[-0.02em] shadow-[0_16px_24px_rgba(0,0,0,0.22)] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
+          >
+            {isAdding ? "추가 중..." : "식단에 추가"}
+          </button>
+        </div>
       </div>
-
-      <BottomNav />
     </MobileLayout>
   );
 }
