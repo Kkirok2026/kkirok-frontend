@@ -4,23 +4,17 @@ import { useLocation, useNavigate } from "react-router-dom";
 import MobileLayout from "../components/layout/MobileLayout";
 import KkirokLogo from "../components/common/KkirokLogo";
 import BottomNavButtons from "../components/common/BottomNavButtons";
-import {
-  addAllergy,
-  deleteAllergy,
-  getAllergies,
-  getMe,
-  updateProfile,
-} from "../api/userApi";
+import { getMe, updateProfile } from "../api/userApi";
 import { genderToApi, targetPeriodUnitToApi } from "../utils/mealData";
 
 const LABEL_STYLE = {
-  fontSize: "11px",
+  fontSize: "12px",
   lineHeight: "1",
   fontWeight: 300,
 };
 
 const VALUE_STYLE = {
-  fontSize: "10px",
+  fontSize: "11px",
   lineHeight: "1",
   fontWeight: 300,
 };
@@ -46,12 +40,6 @@ function cleanInteger(value) {
   return `${value ?? ""}`.replace(/[^\d]/g, "");
 }
 
-function csvToNames(value) {
-  return `${value ?? ""}`
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
 
 function UnitPill({ children }) {
   return (
@@ -98,7 +86,7 @@ function GoalInput({
   return (
     <div
       className="rounded-[10px] bg-[#f8f8f8] px-[13px] flex items-center"
-      style={{ height: "44px" }}
+      style={{ height: "48px" }}
     >
       <span
         className="shrink-0 text-[#9f9f9f] tracking-[-0.02em]"
@@ -130,14 +118,10 @@ export default function ProfileGoalEditPage() {
 
   const previousState = location.state ?? {};
 
-  const [allergies, setAllergies] = useState(previousState.allergies ?? []);
   const [height, setHeight] = useState(previousState.height ?? "");
   const [weight, setWeight] = useState(previousState.weight ?? "");
   const [age, setAge] = useState(previousState.age ?? "");
   const [gender, setGender] = useState(previousState.gender ?? "FEMALE");
-  const [allergyText, setAllergyText] = useState(
-    previousState.allergyText ?? ""
-  );
   const [activityLevel, setActivityLevel] = useState(
     previousState.activityLevel ?? "LOW_ACTIVE"
   );
@@ -160,22 +144,16 @@ export default function ProfileGoalEditPage() {
 
     async function loadProfile() {
       try {
-        const [meResponse, allergyResponse] = await Promise.all([
-          getMe(),
-          getAllergies(),
-        ]);
+        const meResponse = await getMe();
 
-        if (ignore) return;
+if (ignore) return;
 
-        const profile = meResponse?.profile || {};
-        const allergyItems = allergyResponse?.items ?? [];
+const profile = meResponse?.profile || {};
 
-        setAllergies(allergyItems);
-        setHeight(`${profile.heightCm ?? ""}`);
-        setWeight(`${profile.weightKg ?? ""}`);
-        setAge(`${meResponse?.age ?? ""}`);
-        setGender(profile.gender || "FEMALE");
-        setAllergyText(allergyItems.map((allergy) => allergy.name).join(", "));
+setHeight(`${profile.heightCm ?? ""}`);
+setWeight(`${profile.weightKg ?? ""}`);
+setAge(`${meResponse?.age ?? ""}`);
+setGender(profile.gender || "FEMALE");
         setActivityLevel(profile.activityLevel || "LOW_ACTIVE");
         setTargetWeight(`${profile.targetWeightKg ?? ""}`);
         setPeriodValue(
@@ -204,12 +182,10 @@ export default function ProfileGoalEditPage() {
   const handlePrev = () => {
     navigate("/profile/edit", {
       state: {
-        allergies,
         height,
         weight,
         age,
         gender,
-        allergyText,
         targetWeight,
         periodValue,
         periodUnit,
@@ -243,31 +219,7 @@ export default function ProfileGoalEditPage() {
         activityLevel,
       });
 
-      const nextNames = csvToNames(allergyText);
-      const currentNames = allergies.map((allergy) => allergy.name);
-      const nextNameSet = new Set(nextNames);
-      const currentNameSet = new Set(currentNames);
-
-      await Promise.all(
-        allergies
-          .filter(
-            (allergy) =>
-              allergy.allergyId && !nextNameSet.has(allergy.name)
-          )
-          .map((allergy) => deleteAllergy(allergy.allergyId))
-      );
-
-      await Promise.all(
-        nextNames
-          .filter((name) => !currentNameSet.has(name))
-          .map((name) =>
-            addAllergy({
-              allergyType: "INGREDIENT",
-              ingredientName: name,
-              reactionNote: "주의",
-            })
-          )
-      );
+      
 
       navigate("/profile", {
         replace: true,
@@ -367,7 +319,7 @@ export default function ProfileGoalEditPage() {
         onNext={handleSave}
         prevText="이전"
         nextText={isSaving ? "수정 중" : "수정"}
-        bottomClassName="bottom-[40px]"
+        bottomClassName="bottom-[80px]"
       />
     </MobileLayout>
   );

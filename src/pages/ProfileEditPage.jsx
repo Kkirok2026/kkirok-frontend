@@ -4,16 +4,16 @@ import { useLocation, useNavigate } from "react-router-dom";
 import MobileLayout from "../components/layout/MobileLayout";
 import KkirokLogo from "../components/common/KkirokLogo";
 import BottomNavButtons from "../components/common/BottomNavButtons";
-import { getAllergies, getMe } from "../api/userApi";
+import { getMe } from "../api/userApi";
 
 const INPUT_LABEL_STYLE = {
-  fontSize: "11px",
+  fontSize: "12px",
   lineHeight: "1",
   fontWeight: 300,
 };
 
 const INPUT_VALUE_STYLE = {
-  fontSize: "10px",
+  fontSize: "11px",
   lineHeight: "1",
   fontWeight: 300,
 };
@@ -67,7 +67,7 @@ function EditInput({
     <div
       className="rounded-[10px] bg-[#f8f8f8] px-[13px] flex items-center"
       style={{
-        height: "44px",
+        height: "48px",
       }}
     >
       <span
@@ -120,7 +120,7 @@ function GenderSelector({ value, onChange }) {
     <div
       className="rounded-[10px] bg-[#f8f8f8] px-[13px] flex items-center"
       style={{
-        height: "44px",
+        height: "48px",
       }}
     >
       <span
@@ -149,9 +149,6 @@ function GenderSelector({ value, onChange }) {
   );
 }
 
-function allergyLabel(items) {
-  return items.map((allergy) => allergy.name).filter(Boolean).join(", ");
-}
 
 export default function ProfileEditPage() {
   const navigate = useNavigate();
@@ -159,15 +156,10 @@ export default function ProfileEditPage() {
 
   const previousState = location.state ?? {};
   const hasPreviousState = Object.keys(previousState).length > 0;
-
-  const [allergies, setAllergies] = useState(previousState.allergies ?? []);
   const [height, setHeight] = useState(previousState.height ?? "");
   const [weight, setWeight] = useState(previousState.weight ?? "");
   const [age, setAge] = useState(previousState.age ?? "");
   const [gender, setGender] = useState(previousState.gender ?? "FEMALE");
-  const [allergyText, setAllergyText] = useState(
-    previousState.allergyText ?? ""
-  );
   const [targetWeight, setTargetWeight] = useState(
     previousState.targetWeight ?? ""
   );
@@ -187,25 +179,18 @@ export default function ProfileEditPage() {
 
     async function loadProfile() {
       try {
-        const [meResponse, allergyResponse] = await Promise.all([
-          getMe(),
-          getAllergies(),
-        ]);
+        const meResponse = await getMe();
 
-        if (ignore) return;
+if (ignore) return;
 
-        const profile = meResponse?.profile || {};
-        const allergyItems = allergyResponse?.items ?? [];
+const profile = meResponse?.profile || {};
 
-        setAllergies(allergyItems);
+if (hasPreviousState) return;
 
-        if (hasPreviousState) return;
-
-        setHeight(`${profile.heightCm ?? ""}`);
-        setWeight(`${profile.weightKg ?? ""}`);
-        setAge(`${meResponse?.age ?? ""}`);
-        setGender(profile.gender || "FEMALE");
-        setAllergyText(allergyLabel(allergyItems));
+setHeight(`${profile.heightCm ?? ""}`);
+setWeight(`${profile.weightKg ?? ""}`);
+setAge(`${meResponse?.age ?? ""}`);
+setGender(profile.gender || "FEMALE");
         setTargetWeight(`${profile.targetWeightKg ?? ""}`);
         setPeriodValue(
           `${profile.targetPeriodValue ?? (profile.targetWeightKg ? 1 : "")}`
@@ -251,12 +236,10 @@ export default function ProfileEditPage() {
 
     navigate("/profile/edit/goal", {
       state: {
-        allergies,
         height,
         weight,
         age,
         gender,
-        allergyText,
         targetWeight,
         periodValue,
         periodUnit,
@@ -335,23 +318,15 @@ export default function ProfileEditPage() {
         <div className="mt-[13px]">
           <GenderSelector value={gender} onChange={setGender} />
         </div>
-
-        <div className="mt-[13px]">
-          <EditInput
-            label="알레르기"
-            value={allergyText}
-            onChange={setAllergyText}
-          />
-        </div>
       </main>
 
       <BottomNavButtons
-        onPrev={() => navigate("/profile")}
-        onNext={handleNext}
-        prevText="이전"
-        nextText="다음"
-        bottomClassName="bottom-[24px]"
-      />
+  onPrev={() => navigate("/profile")}
+  onNext={handleNext}
+  prevText="이전"
+  nextText="다음"
+  bottomClassName="bottom-[80px]"
+/>
     </MobileLayout>
   );
 }

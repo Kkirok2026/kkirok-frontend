@@ -37,7 +37,7 @@ function ResultNutrientCard({ icon, label, value }) {
           lineHeight: "1",
         }}
       >
-        {value}gr
+        {value}g
       </p>
     </div>
   );

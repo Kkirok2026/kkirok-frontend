@@ -4,6 +4,7 @@ export default function BottomNavButtons({
   prevText = "이전",
   nextText = "다음",
   bottomClassName = "bottom-[72px]",
+  nextDisabled = false,
 }) {
   return (
     <div
@@ -24,12 +25,17 @@ export default function BottomNavButtons({
       <button
         type="button"
         onClick={onNext}
+        disabled={nextDisabled}
         style={{
           backgroundColor: "#000000",
           color: "#ffffff",
           fontWeight: 700,
         }}
-        className="h-[50px] flex-1 rounded-[10px] text-[13px] leading-[16px] font-bold tracking-[-0.02em] shadow-[0_16px_22px_rgba(0,0,0,0.22)] active:scale-[0.98] transition"
+        className={[
+          "h-[50px] flex-1 rounded-[10px] text-[13px] leading-[16px] font-bold tracking-[-0.02em]",
+          "shadow-[0_16px_22px_rgba(0,0,0,0.22)] active:scale-[0.98] transition",
+          "disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100",
+        ].join(" ")}
       >
         {nextText}
       </button>

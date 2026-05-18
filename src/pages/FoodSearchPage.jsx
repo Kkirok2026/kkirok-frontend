@@ -36,7 +36,29 @@ function buildCreateMealPath(query, searchParams) {
   return queryString ? `/create-meal?${queryString}` : "/create-meal";
 }
 
-function SearchBox({ value, onChange, autoFocus = false }) {
+function SearchBox({
+  value,
+  onValueChange,
+  onComposingChange,
+  autoFocus = false,
+}) {
+  const handleChange = (event) => {
+    onValueChange(event.target.value);
+  };
+
+  const handleCompositionStart = () => {
+    onComposingChange?.(true);
+  };
+
+  const handleCompositionEnd = (event) => {
+    const inputElement = event.currentTarget;
+
+    requestAnimationFrame(() => {
+      onValueChange(inputElement.value);
+      onComposingChange?.(false);
+    });
+  };
+
   return (
     <div className="h-[30px] rounded-[9px] bg-[#f8f8f8] px-[12px] flex items-center">
       <img
@@ -49,25 +71,27 @@ function SearchBox({ value, onChange, autoFocus = false }) {
         autoFocus={autoFocus}
         type="text"
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={handleChange}
+        onCompositionStart={handleCompositionStart}
+        onCompositionEnd={handleCompositionEnd}
         placeholder=""
         className="ml-[9px] w-full min-w-0 bg-transparent outline-none font-light text-[#272932] caret-[#272932]"
         style={{
           fontSize: "12px",
-          lineHeight: "14px",
+          lineHeight: "12px",
         }}
       />
     </div>
   );
 }
 
-function EmptySearchView({ query, onChange }) {
+function EmptySearchView({ inputValue, onValueChange, onComposingChange }) {
   return (
-    <main className="absolute left-[52px] right-[52px] top-[250px] flex flex-col items-center text-center">
+    <main className="absolute left-[52px] right-[52px] top-[274px] flex flex-col items-center text-center">
       <img
         src={DuckResultImage}
         alt="음식 검색 안내"
-        className="w-[290px] h-auto object-contain"
+        className="w-[260px] h-auto object-contain"
       />
 
       <p className="mt-[38px] text-[13px] font-bold leading-[20px] text-[#272932] tracking-[-0.03em]">
@@ -75,26 +99,40 @@ function EmptySearchView({ query, onChange }) {
       </p>
 
       <div className="mt-[30px] w-full">
-        <SearchBox value={query} onChange={onChange} />
+        <SearchBox
+          value={inputValue}
+          onValueChange={onValueChange}
+          onComposingChange={onComposingChange}
+        />
       </div>
     </main>
   );
 }
 
-function SearchHeader({ query, onChange, onBack }) {
+function SearchHeader({
+  inputValue,
+  onValueChange,
+  onComposingChange,
+  onBack,
+}) {
   return (
     <div className="mt-[12px] flex items-center gap-[14px]">
       <button
         type="button"
         onClick={onBack}
         aria-label="뒤로가기"
-        className="h-[28px] w-[28px] rounded-[7px] bg-[#f8f8f8] text-[20px] leading-none text-[#272932] flex items-center justify-center shrink-0"
+        className="h-[28px] w-[28px] rounded-[7px] bg-transparent text-[20px] leading-none text-[#272932] flex items-center justify-center shrink-0"
       >
         ‹
       </button>
 
-      <div className="w-[250px] shrink-0">
-        <SearchBox value={query} onChange={onChange} autoFocus />
+      <div className="w-[270px] shrink-0">
+        <SearchBox
+          value={inputValue}
+          onValueChange={onValueChange}
+          onComposingChange={onComposingChange}
+          autoFocus
+        />
       </div>
     </div>
   );
@@ -110,7 +148,7 @@ function NoResultView({ query, searchParams }) {
       <img
         src={DuckCryingImage}
         alt="검색 결과 없음"
-        className="mt-[108px] w-[330px] h-auto object-contain"
+        className="mt-[100px] w-[360px] h-auto object-contain"
       />
 
       <Link
@@ -156,10 +194,27 @@ function ResultList({ query, foods, searchParams }) {
 export default function FoodSearchPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [query, setQuery] = useState(searchParams.get("q") || "");
+
+  const initialQuery = searchParams.get("q") || "";
+
+  const [inputValue, setInputValue] = useState(initialQuery);
+  const [query, setQuery] = useState(initialQuery);
+  const [isComposing, setIsComposing] = useState(false);
   const [foods, setFoods] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (isComposing) return undefined;
+
+    const timer = window.setTimeout(() => {
+      setQuery(inputValue);
+    }, 350);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [inputValue, isComposing]);
 
   const trimmedQuery = query.trim();
   const hasSearched = trimmedQuery.length > 0;
@@ -169,10 +224,11 @@ export default function FoodSearchPage() {
       setFoods([]);
       setError("");
       setIsLoading(false);
-      return;
+      return undefined;
     }
 
     let ignore = false;
+
     const timer = window.setTimeout(async () => {
       setIsLoading(true);
       setError("");
@@ -196,9 +252,25 @@ export default function FoodSearchPage() {
     };
   }, [trimmedQuery]);
 
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+
+    setInputValue("");
+    setQuery("");
+  };
+
   const content = useMemo(() => {
     if (!hasSearched) {
-      return <EmptySearchView query={query} onChange={setQuery} />;
+      return (
+        <EmptySearchView
+          inputValue={inputValue}
+          onValueChange={setInputValue}
+          onComposingChange={setIsComposing}
+        />
+      );
     }
 
     return (
@@ -206,12 +278,10 @@ export default function FoodSearchPage() {
         <PageHeader eyebrow="Recommend Meal" title="77ㅣ록" compact />
 
         <SearchHeader
-          query={query}
-          onChange={setQuery}
-          onBack={() => {
-            if (window.history.length > 1) navigate(-1);
-            else setQuery("");
-          }}
+          inputValue={inputValue}
+          onValueChange={setInputValue}
+          onComposingChange={setIsComposing}
+          onBack={handleBack}
         />
 
         {isLoading && (
@@ -239,7 +309,15 @@ export default function FoodSearchPage() {
         )}
       </div>
     );
-  }, [error, foods, hasSearched, isLoading, navigate, query, searchParams]);
+  }, [
+    error,
+    foods,
+    hasSearched,
+    inputValue,
+    isLoading,
+    query,
+    searchParams,
+  ]);
 
   return (
     <MobileLayout>

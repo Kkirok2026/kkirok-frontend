@@ -5,7 +5,6 @@ import MobileLayout from "../components/layout/MobileLayout";
 import KkirokLogo from "../components/common/KkirokLogo";
 import BottomButton from "../components/common/BottomButton";
 import { signup } from "../api/authApi";
-import { addIngredientAllergies } from "../api/ingredientApi";
 import { getDailySummary } from "../api/mealLogApi";
 import { updateProfile } from "../api/userApi";
 import {
@@ -17,34 +16,6 @@ import {
 
 import DuckLoadingImage from "../assets/images/duck_loading.png";
 
-function normalizeAllergyItems(allergies = []) {
-  return allergies
-    .map((allergy) => {
-      if (typeof allergy === "string") {
-        return {
-          ingredientName: allergy,
-          reactionNote: "주의",
-        };
-      }
-
-      if (allergy.ingredientId) {
-        return {
-          ingredientId: allergy.ingredientId,
-          reactionNote: allergy.reactionNote || "주의",
-        };
-      }
-
-      const ingredientName = allergy.ingredientName || allergy.label;
-
-      return ingredientName
-        ? {
-            ingredientName,
-            reactionNote: allergy.reactionNote || "주의",
-          }
-        : null;
-    })
-    .filter(Boolean);
-}
 
 function fallbackNutrition(userInfo) {
   const height = Number(userInfo.height);
@@ -138,12 +109,6 @@ export default function SignupLoadingPage() {
           activityLevel: "LOW_ACTIVE",
         });
 
-        const allergyItems = normalizeAllergyItems(signupState.allergies);
-
-        if (allergyItems.length > 0) {
-          setStatus("알레르기 정보를 저장하고 있어요");
-          await addIngredientAllergies(allergyItems);
-        }
 
         setStatus("맞춤 영양 기준을 불러오고 있어요");
         let nutrition = fallbackNutrition(signupState);

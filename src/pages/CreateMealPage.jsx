@@ -17,8 +17,8 @@ import {
 } from "../utils/mealData";
 
 const INPUT_TEXT_STYLE = {
-  fontSize: "10px",
-  lineHeight: "14px",
+  fontSize: "12.5px",
+  lineHeight: "15px",
   fontWeight: 300,
 };
 
@@ -72,11 +72,9 @@ function MealInput({
       style={INPUT_TEXT_STYLE}
       className={[
         "h-[42px] w-full rounded-[10px] px-[36px] outline-none",
+        "border border-transparent bg-[#f8f8f8]",
         "text-[#272932] caret-[#272932]",
         "placeholder:text-[#a9a9a9]",
-        bordered
-          ? "border border-[#d7d7d7] bg-white focus:border-[#ada4a5]"
-          : "border border-transparent bg-[#f8f8f8]",
       ].join(" ")}
     />
   );
@@ -94,6 +92,7 @@ export default function CreateMealPage() {
     "";
 
   const [foodName, setFoodName] = useState(initialName);
+  const [caloriesKcal, setCaloriesKcal] = useState("");
   const [carbG, setCarbG] = useState("");
   const [proteinG, setProteinG] = useState("");
   const [fatG, setFatG] = useState("");
@@ -110,15 +109,16 @@ export default function CreateMealPage() {
   const canSubmit = useMemo(() => {
     return (
       foodName.trim().length > 0 &&
+      caloriesKcal.trim().length > 0 &&
       carbG.trim().length > 0 &&
       proteinG.trim().length > 0 &&
       fatG.trim().length > 0
     );
-  }, [carbG, fatG, foodName, proteinG]);
+  }, [caloriesKcal, carbG, fatG, foodName, proteinG]);
 
   const handleSubmit = async () => {
     if (!canSubmit || isSubmitting) {
-      setError("메뉴명, 탄수화물, 단백질, 지방은 꼭 입력해주세요.");
+        setError("메뉴명, 칼로리, 탄수화물, 단백질, 지방은 꼭 입력해주세요.");
       return;
     }
 
@@ -194,17 +194,16 @@ export default function CreateMealPage() {
         <KkirokLogo className="mt-[2px]" />
       </header>
 
-      <main className="absolute left-[50px] right-[50px] top-[296px]">
-        <MealInput
-          placeholder="메뉴 명"
-          value={foodName}
-          onChange={(value) => {
-            setFoodName(value);
-            setError("");
-          }}
-          inputMode="text"
-          bordered
-        />
+      <main className="absolute left-[50px] right-[50px] top-[190px]">
+      <MealInput
+  placeholder="메뉴 명"
+  value={foodName}
+  onChange={(value) => {
+    setFoodName(value);
+    setError("");
+  }}
+  inputMode="text"
+/>
 
         <div className="mt-[20px] space-y-[18px]">
           <MealInput

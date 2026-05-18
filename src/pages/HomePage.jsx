@@ -78,23 +78,28 @@ function DateCarousel({
         <button
           type="button"
           onClick={() => onChangeMonth(-1)}
-          className="text-[26px] leading-none font-light text-[#a0a0a0]"
+          className="text-[18px] leading-none font-light text-[#a0a0a0]"
         >
           ‹
         </button>
 
         <button
-          type="button"
-          onClick={onOpenCalendar}
-          className="text-[13px] font-light text-[#9a9a9a] tracking-[-0.02em]"
-        >
-          {getMonthLabel(currentMonth)}
-        </button>
+  type="button"
+  onClick={onOpenCalendar}
+  className="font-light tracking-[-0.02em]"
+  style={{
+    fontSize: "11px",
+    lineHeight: "1",
+    color: "#9a9a9a",
+  }}
+>
+  {getMonthLabel(currentMonth)}
+</button>
 
         <button
           type="button"
           onClick={() => onChangeMonth(1)}
-          className="text-[26px] leading-none font-light text-[#a0a0a0]"
+          className="text-[18px] leading-none font-light text-[#a0a0a0]"
         >
           ›
         </button>
@@ -273,7 +278,7 @@ function DonutChart({ data }) {
 
   return (
     <section className="mx-[58px] mt-[24px]">
-      <h2 className="text-[20px] font-extrabold text-[#272932] tracking-[-0.04em]">
+      <h2 className="text-[18px] font-semibold text-[#272932] tracking-[-0.04em]">
         나의 하루 영양
       </h2>
 
@@ -338,7 +343,7 @@ function DonutChart({ data }) {
   );
 }
 
-function MealCard({ mealKey, meal, onClick }) {
+function MealCard({ meal, onClick }) {
   const hasData = Boolean(
     meal?.mealLogId ||
       Number(meal?.kcal) > 0 ||
@@ -353,37 +358,40 @@ function MealCard({ mealKey, meal, onClick }) {
     <button
       type="button"
       onClick={onClick}
+      style={{
+        border: "1px solid #B9ADAF",
+      }}
       className={[
-        "relative h-[126px] rounded-[18px]",
-        "border border-[#ada4a5] bg-white",
-        "text-left px-[18px] pt-[18px]",
-        "shadow-[0_10px_22px_rgba(29,22,23,0.03)]",
+        "relative h-[126px] rounded-[14px] bg-white",
+        "px-[16px] pt-[18px] text-left",
+        "shadow-[0_10px_24px_rgba(29,22,23,0.04)]",
+        "active:scale-[0.99] transition",
       ].join(" ")}
     >
-      <span className="absolute right-[14px] top-[10px] text-[24px] leading-none font-light text-[#5f6065]">
+      <span className="absolute right-[14px] top-[10px] text-[18px] leading-none font-light text-[#5f6065]">
         +
       </span>
 
-      <p className="text-[13px] font-light text-[#272932] tracking-[-0.02em]">
+      <p className="absolute left-[16px] top-[18px] text-[11px] font-semibold text-[#272932] tracking-[-0.02em]">
         {meal?.label || "식단"}
       </p>
 
       {hasData && (
         <>
-          <p className="mt-[20px] text-[23px] leading-none font-extrabold text-[#6da60f] tracking-[-0.04em]">
+          <p className="mt-[39px] text-[18px] leading-none font-bold text-[#6da60f] tracking-[-0.04em]">
             {meal.kcal} kal
           </p>
 
-          <div className="mt-[10px] h-[1px] w-[80px] bg-[#e2e2e2]" />
+          <div className="mt-[6px] h-[1px] w-[72px] bg-[#e2e2e2]" />
 
-          <div className="mt-[9px] space-y-[3px]">
-            <p className="text-[9px] font-light text-[#6f7075] tracking-[-0.02em]">
+          <div className="mt-[7px] space-y-[3px]">
+            <p className="text-[8px] font-light text-[#6f7075] tracking-[-0.02em]">
               탄수화물 : {meal.carbs}g
             </p>
-            <p className="text-[9px] font-light text-[#6f7075] tracking-[-0.02em]">
+            <p className="text-[8px] font-light text-[#6f7075] tracking-[-0.02em]">
               단백질 : {meal.protein}g
             </p>
-            <p className="text-[9px] font-light text-[#6f7075] tracking-[-0.02em]">
+            <p className="text-[8px] font-light text-[#6f7075] tracking-[-0.02em]">
               지방 : {meal.fat}g
             </p>
           </div>
@@ -401,7 +409,7 @@ function MealRecords({ dailyData, selectedDateKey }) {
 
   return (
     <section className="mx-[58px] mt-[22px] pb-[126px]">
-      <h2 className="text-[20px] font-extrabold text-[#272932] tracking-[-0.04em]">
+      <h2 className="text-[18px] font-semibold text-[#272932] tracking-[-0.04em]">
         기록
       </h2>
 
@@ -409,7 +417,6 @@ function MealRecords({ dailyData, selectedDateKey }) {
         {Object.entries(meals).map(([mealKey, meal]) => (
           <MealCard
             key={mealKey}
-            mealKey={mealKey}
             meal={meal}
             onClick={() => {
               if (meal.mealLogId) {

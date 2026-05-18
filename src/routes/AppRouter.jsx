@@ -6,7 +6,6 @@ import LoginPage from "../pages/LoginPage";
 import SignupVerifyPage from "../pages/SignupVerifyPage";
 import SignupCreatePage from "../pages/SignupCreatePage";
 import SignupProfilePage from "../pages/SignupProfilePage";
-import SignupAllergyPage from "../pages/SignupAllergyPage";
 import SignupGoalPage from "../pages/SignupGoalPage";
 import SignupLoadingPage from "../pages/SignupLoadingPage";
 import SignupResultPage from "../pages/SignupResultPage";
@@ -32,7 +31,7 @@ export default function AppRouter() {
       <Route path="/signup" element={<SignupVerifyPage />} />
       <Route path="/signup/create" element={<SignupCreatePage />} />
       <Route path="/signup/profile" element={<SignupProfilePage />} />
-      <Route path="/signup/allergy" element={<SignupAllergyPage />} />
+      <Route path="/signup/allergy" element={<Navigate to="/signup/profile" replace />} />
       <Route path="/signup/goal" element={<SignupGoalPage />} />
       <Route path="/signup/loading" element={<SignupLoadingPage />} />
       <Route path="/signup/result" element={<SignupResultPage />} />
