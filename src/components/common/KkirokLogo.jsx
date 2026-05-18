@@ -1,4 +1,4 @@
-import LogoIcon from "../../assets/icons/77I록.svg";
+import LogoIcon from "../../assets/icons/kkirok-logo.svg";
 
 export default function KkirokLogo({ className = "" }) {
   return (
