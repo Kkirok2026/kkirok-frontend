@@ -13,12 +13,18 @@ export async function signup({ email, verificationCode, password, name, age }) {
     age: Number(age),
   });
 
+  if (!response?.accessToken) {
+    throw new Error("로그인 토큰을 받지 못했습니다.");
+  }
   setAccessToken(response?.accessToken);
   return response;
 }
 
 export async function login({ email, password }) {
   const response = await apiClient.post("/auth/login", { email, password });
+  if (!response?.accessToken) {
+    throw new Error("로그인 토큰을 받지 못했습니다.");
+  }
   setAccessToken(response?.accessToken);
   return response;
 }

@@ -32,7 +32,14 @@ export class ApiRequestError extends Error {
 }
 
 function unwrapApiResponse(payload) {
-  if (!payload || typeof payload.success !== "boolean") return payload;
+  if (!payload || typeof payload.success !== "boolean") {
+    throw new ApiRequestError(
+      "API 서버 응답 형식이 올바르지 않습니다. 배포 환경변수를 확인해주세요.",
+      {
+        code: "INVALID_API_RESPONSE",
+      }
+    );
+  }
 
   if (payload.success) {
     return payload.data ?? null;

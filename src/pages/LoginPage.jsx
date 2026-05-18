@@ -87,6 +87,12 @@ export default function LoginPage() {
     if (isSubmitting) return;
 
     setError("");
+
+    if (!email.trim() || !password) {
+      setError("이메일과 비밀번호를 입력해주세요.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
