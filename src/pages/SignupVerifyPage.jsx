@@ -19,7 +19,10 @@ export default function SignupVerifyPage() {
   const [isSending, setIsSending] = useState(false);
 
   const handleSendCode = async () => {
-    if (!email.trim()) return;
+    if (!email.trim()) {
+      setError("이메일을 입력해주세요.");
+      return;
+    }
 
     setError("");
     setMessage("");
@@ -64,7 +67,11 @@ export default function SignupVerifyPage() {
           icon={MessageIcon}
           placeholder="Email"
           value={email}
-          onChange={setEmail}
+          onChange={(value) => {
+            setEmail(value);
+            setError("");
+            setMessage("");
+          }}
           rightElement={
             <button
               type="button"

@@ -101,8 +101,8 @@ export default function SignupLoadingPage() {
         const targetWeightKg = signupState.goalWeight
           ? Number(signupState.goalWeight)
           : null;
-        const targetPeriodValue = signupState.periodValue
-          ? Number(signupState.periodValue)
+        const targetPeriodValue = targetWeightKg
+          ? Number(signupState.periodValue || 1)
           : null;
 
         if (

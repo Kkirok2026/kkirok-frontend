@@ -5,8 +5,9 @@ import MobileLayout from "../components/layout/MobileLayout";
 import PageHeader from "../components/layout/PageHeader";
 import BottomNav from "../components/layout/BottomNav";
 import CalendarModal from "../components/common/CalendarModal";
+import Modal from "../components/common/Modal";
 import { addMenuOption } from "../api/mealLogApi";
-import { getDailyMenu } from "../api/menuApi";
+import { compareMenus } from "../api/menuApi";
 import { getMe } from "../api/userApi";
 import {
   formatDateKey,
@@ -16,6 +17,7 @@ import {
 } from "../utils/mealData";
 
 const DINING_TYPE_ORDER = ["STUDENT", "DORMITORY"];
+
 const DINING_TYPE_LABELS = {
   STUDENT: "학생식당",
   DORMITORY: "생활관 식당",
@@ -44,6 +46,7 @@ function enrichOption(option, place) {
 function MenuCard({ item, selected, onSelect }) {
   const nutrients = item?.nutrients || {};
   const lines = optionLines(item?.optionName);
+  const warnings = item?.allergyWarnings ?? [];
 
   return (
     <button
@@ -74,6 +77,12 @@ function MenuCard({ item, selected, onSelect }) {
           lines.map((line) => <p key={line}>{line}</p>)
         ) : (
           <p>{item?.categoryName || "메뉴 정보 없음"}</p>
+        )}
+
+        {warnings.length > 0 && (
+          <p className="pt-[8px] text-[10px] font-light leading-[15px] text-[#ff7b45]">
+            {warnings[0].message}
+          </p>
         )}
       </div>
     </button>
@@ -121,7 +130,8 @@ function DiningSection({
   return (
     <section>
       <p className="mb-[8px] text-[11px] font-bold text-[#8a8c90]">
-        {DINING_TYPE_LABELS[activeOption.diningPlaceType] || activeOption.diningPlaceName}
+        {DINING_TYPE_LABELS[activeOption.diningPlaceType] ||
+          activeOption.diningPlaceName}
       </p>
 
       <CategoryTabs
@@ -142,17 +152,24 @@ function DiningSection({
 export default function UniversityMealPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+
   const [mealType, setMealType] = useState("LUNCH");
   const [selectedDate, setSelectedDate] = useState(
     () => parseDateKey(searchParams.get("date")) || new Date()
   );
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+
   const date = formatDateKey(selectedDate);
+
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isAddConfirmOpen, setIsAddConfirmOpen] = useState(false);
+
   const [universityId, setUniversityId] = useState(null);
   const [universityName, setUniversityName] = useState("");
   const [dailyMenu, setDailyMenu] = useState(null);
+
   const [selectedOptionId, setSelectedOptionId] = useState(null);
   const [activeOptionIds, setActiveOptionIds] = useState({});
+
   const [isResolvingUniversity, setIsResolvingUniversity] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
@@ -160,6 +177,7 @@ export default function UniversityMealPage() {
 
   const updateSelectedDate = (nextDate, options = {}) => {
     setSelectedDate(nextDate);
+
     setSearchParams(
       (current) => {
         const next = new URLSearchParams(current);
@@ -233,13 +251,37 @@ export default function UniversityMealPage() {
       setSelectedOptionId(null);
 
       try {
-        const response = await getDailyMenu({
+        const response = await compareMenus({
           universityId,
           date,
           mealType,
         });
 
-        if (!ignore) setDailyMenu(response);
+        const groups = new Map();
+
+        for (const item of response?.items ?? []) {
+          const key = `${item.diningPlaceType}:${item.diningPlaceName}`;
+
+          if (!groups.has(key)) {
+            groups.set(key, {
+              diningPlaceId: key,
+              diningPlaceName: item.diningPlaceName,
+              diningPlaceType: item.diningPlaceType,
+              options: [],
+            });
+          }
+
+          groups.get(key).options.push(item);
+        }
+
+        if (!ignore) {
+          setDailyMenu({
+            universityId: response?.universityId ?? universityId,
+            date: response?.date ?? date,
+            mealType: response?.mealType ?? mealType,
+            diningPlaces: Array.from(groups.values()),
+          });
+        }
       } catch (loadError) {
         if (!ignore) {
           setDailyMenu(null);
@@ -262,6 +304,7 @@ export default function UniversityMealPage() {
 
     for (const place of dailyMenu?.diningPlaces ?? []) {
       const type = place.diningPlaceType;
+
       groups[type] = [
         ...(groups[type] ?? []),
         ...(place.options ?? []).map((option) => enrichOption(option, place)),
@@ -275,8 +318,11 @@ export default function UniversityMealPage() {
     const knownTypes = DINING_TYPE_ORDER.filter(
       (type) => (groupedOptions[type] ?? []).length > 0
     );
+
     const otherTypes = Object.keys(groupedOptions).filter(
-      (type) => !DINING_TYPE_ORDER.includes(type) && groupedOptions[type].length > 0
+      (type) =>
+        !DINING_TYPE_ORDER.includes(type) &&
+        groupedOptions[type].length > 0
     );
 
     return [...knownTypes, ...otherTypes];
@@ -299,6 +345,7 @@ export default function UniversityMealPage() {
       for (const type of visibleDiningTypes) {
         const options = groupedOptions[type] ?? [];
         const currentId = current[type];
+
         next[type] = options.some((option) => option.optionId === currentId)
           ? currentId
           : options[0]?.optionId;
@@ -321,6 +368,7 @@ export default function UniversityMealPage() {
       ...current,
       [option.diningPlaceType]: option.optionId,
     }));
+
     setSelectedOptionId(option.optionId);
   };
 
@@ -335,6 +383,9 @@ export default function UniversityMealPage() {
         menuOptionId: selectedOption.optionId,
         memo: selectedOption.categoryName || selectedOption.optionName,
       });
+
+      setIsAddConfirmOpen(false);
+
       const meal = toMealDisplay(response);
 
       navigate(`/meal-details/${meal.mealKey}`, {
@@ -358,7 +409,11 @@ export default function UniversityMealPage() {
   return (
     <MobileLayout>
       <div className="absolute inset-0 overflow-y-auto px-[38px] pb-[166px]">
-        <PageHeader eyebrow="University Meal" title="77ㅣ록" className="pb-[80px]" />
+        <PageHeader
+          eyebrow="University Meal"
+          title="77ㅣ록"
+          className="pb-[80px]"
+        />
 
         <button
           type="button"
@@ -388,6 +443,7 @@ export default function UniversityMealPage() {
           >
             점심
           </button>
+
           <button
             type="button"
             onClick={() => setMealType("DINNER")}
@@ -445,7 +501,7 @@ export default function UniversityMealPage() {
       <div className="absolute bottom-[104px] right-[38px] z-40">
         <button
           type="button"
-          onClick={handleAddMenu}
+          onClick={() => setIsAddConfirmOpen(true)}
           disabled={!selectedOption || !universityId || isAdding}
           className="flex h-[34px] min-w-[150px] items-center justify-center gap-[18px] rounded-full bg-[#272932] px-[20px] text-[12px] font-bold text-white shadow-[0_12px_24px_rgba(39,41,50,0.18)] disabled:opacity-40"
         >
@@ -459,6 +515,14 @@ export default function UniversityMealPage() {
         selectedDate={selectedDate}
         onSelect={updateSelectedDate}
         onClose={() => setIsCalendarOpen(false)}
+      />
+
+      <Modal
+        open={isAddConfirmOpen}
+        title="식단에 추가하시겠습니까?"
+        confirmText={isAdding ? "추가 중..." : "추가"}
+        onConfirm={handleAddMenu}
+        onCancel={() => setIsAddConfirmOpen(false)}
       />
 
       <BottomNav />

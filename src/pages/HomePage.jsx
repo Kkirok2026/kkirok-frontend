@@ -66,6 +66,7 @@ function DateCarousel({
   onSelectDate,
 }) {
   const weekStart = useMemo(() => getMondayOfWeek(selectedDate), [selectedDate]);
+
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)),
     [weekStart]
@@ -99,9 +100,7 @@ function DateCarousel({
         </button>
       </div>
 
-      <div
-        className="mt-[16px] grid grid-cols-7 gap-[8px] px-[22px]"
-      >
+      <div className="mt-[16px] grid grid-cols-7 gap-[8px] px-[22px]">
         {days.map((date) => {
           const selected = getDateKey(date) === getDateKey(selectedDate);
 
@@ -340,36 +339,51 @@ function DonutChart({ data }) {
 }
 
 function MealCard({ mealKey, meal, onClick }) {
-  const hasData = Boolean(meal?.mealLogId || meal?.kcal || meal?.foods?.length);
+  const hasData = Boolean(
+    meal?.mealLogId ||
+      Number(meal?.kcal) > 0 ||
+      Number(meal?.carbs) > 0 ||
+      Number(meal?.protein) > 0 ||
+      Number(meal?.fat) > 0 ||
+      meal?.foods?.length ||
+      meal?.items?.length
+  );
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="relative h-[126px] rounded-[12px] border border-[#bdb8b8] bg-white text-left px-[18px] pt-[18px]"
+      className={[
+        "relative h-[126px] rounded-[18px]",
+        "border border-[#ada4a5] bg-white",
+        "text-left px-[18px] pt-[18px]",
+        "shadow-[0_10px_22px_rgba(29,22,23,0.03)]",
+      ].join(" ")}
     >
-      <span className="absolute right-[14px] top-[10px] text-[19px] font-light text-[#5f6065]">
+      <span className="absolute right-[14px] top-[10px] text-[24px] leading-none font-light text-[#5f6065]">
         +
       </span>
 
-      <p className="text-[12px] font-light text-[#272932] tracking-[-0.02em]">
-        {meal?.label}
+      <p className="text-[13px] font-light text-[#272932] tracking-[-0.02em]">
+        {meal?.label || "식단"}
       </p>
 
       {hasData && (
         <>
-          <p className="mt-[20px] text-[20px] font-extrabold text-[#6da60f] tracking-[-0.04em]">
+          <p className="mt-[20px] text-[23px] leading-none font-extrabold text-[#6da60f] tracking-[-0.04em]">
             {meal.kcal} kal
           </p>
 
-          <div className="mt-[10px] space-y-[3px]">
-            <p className="text-[8px] font-light text-[#6f7075]">
+          <div className="mt-[10px] h-[1px] w-[80px] bg-[#e2e2e2]" />
+
+          <div className="mt-[9px] space-y-[3px]">
+            <p className="text-[9px] font-light text-[#6f7075] tracking-[-0.02em]">
               탄수화물 : {meal.carbs}g
             </p>
-            <p className="text-[8px] font-light text-[#6f7075]">
+            <p className="text-[9px] font-light text-[#6f7075] tracking-[-0.02em]">
               단백질 : {meal.protein}g
             </p>
-            <p className="text-[8px] font-light text-[#6f7075]">
+            <p className="text-[9px] font-light text-[#6f7075] tracking-[-0.02em]">
               지방 : {meal.fat}g
             </p>
           </div>
@@ -431,14 +445,18 @@ function MealRecords({ dailyData, selectedDateKey }) {
 export default function HomePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+
   const [selectedDate, setSelectedDate] = useState(
     () => parseDateKey(searchParams.get("date")) || today
   );
+
   const selectedKey = getDateKey(selectedDate);
+
   const currentMonth = useMemo(
     () => new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1),
     [selectedDate]
   );
+
   const [dailyData, setDailyData] = useState(null);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -446,6 +464,7 @@ export default function HomePage() {
 
   const updateSelectedDate = (date, options = {}) => {
     setSelectedDate(date);
+
     setSearchParams(
       (current) => {
         const next = new URLSearchParams(current);
@@ -478,6 +497,7 @@ export default function HomePage() {
         ]);
 
         if (ignore) return;
+
         setDailyData(toDailyDisplay(summary, mealLogs));
       } catch (loadError) {
         if (ignore) return;

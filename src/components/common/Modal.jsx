@@ -9,12 +9,27 @@ export default function Modal({
   onConfirm,
   onCancel,
   children,
+  overlayClassName = "bg-black/25",
+  panelClassName = "",
+  confirmVariant = "dark",
+  confirmClassName = "",
+  confirmTextClassName = "",
 }) {
   if (!open) return null;
 
   return (
-    <div className="absolute inset-0 z-50 bg-black/25 flex items-center justify-center px-[38px]">
-      <div className="w-full max-w-[282px] rounded-[8px] bg-white px-[26px] pt-[26px] pb-[18px] shadow-[0_18px_34px_rgba(0,0,0,0.18)]">
+    <div
+      className={[
+        "absolute inset-0 z-50 flex items-center justify-center px-[38px]",
+        overlayClassName,
+      ].join(" ")}
+    >
+      <div
+        className={[
+          "w-full max-w-[282px] rounded-[8px] bg-white px-[26px] pt-[26px] pb-[18px] shadow-[0_18px_34px_rgba(0,0,0,0.18)]",
+          panelClassName,
+        ].join(" ")}
+      >
         <div className="relative min-h-[26px] mb-[22px]">
           {onCancel && (
             <button
@@ -40,15 +55,20 @@ export default function Modal({
 
         {children && <div className="mb-[20px]">{children}</div>}
 
-        <div className={cancelText ? "grid grid-cols-2 gap-[10px]" : ""}>
+        <div className={cancelText ? "grid grid-cols-2 gap-[10px]" : "flex justify-center"}>
           {cancelText && (
             <Button variant="white" size="sm" onClick={onCancel}>
               {cancelText}
             </Button>
           )}
 
-          <Button variant="dark" size="sm" onClick={onConfirm}>
-            {confirmText}
+          <Button
+            variant={confirmVariant}
+            size="sm"
+            onClick={onConfirm}
+            className={confirmClassName}
+          >
+            <span className={confirmTextClassName}>{confirmText}</span>
           </Button>
         </div>
       </div>

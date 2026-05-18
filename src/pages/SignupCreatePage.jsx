@@ -6,7 +6,7 @@ import KkirokLogo from "../components/common/KkirokLogo";
 import AuthInput from "../components/common/AuthInput";
 import BottomButton from "../components/common/BottomButton";
 
-import ProfileIcon from "../assets/icons/Profile-inac.svg";
+import ProfileIcon from "../assets/icons/Profile.svg";
 import MessageIcon from "../assets/icons/Message.svg";
 import LockIcon from "../assets/icons/Lock.svg";
 
@@ -17,24 +17,32 @@ export default function SignupCreatePage() {
   const previousState = location.state ?? {};
 
   const verifiedEmail = previousState.email ?? "";
-  const verificationCode = previousState.verificationCode ?? "";
   const [name, setName] = useState(previousState.name ?? "");
   const [password, setPassword] = useState(previousState.password ?? "");
+  const [error, setError] = useState("");
 
   const canGoNext =
     name.trim().length > 0 &&
     verifiedEmail.trim().length > 0 &&
-    password.trim().length > 0;
+    password.trim().length >= 8;
 
   const handleNext = () => {
-    if (!canGoNext) return;
+    if (!name.trim()) {
+      setError("성함을 입력해주세요.");
+      return;
+    }
+
+    if (password.trim().length < 8) {
+      setError("비밀번호는 8자리 이상 입력해주세요.");
+      return;
+    }
 
     navigate("/signup/profile", {
       state: {
         ...previousState,
         email: verifiedEmail,
-        name,
-        password,
+        name: name.trim(),
+        password: password.trim(),
       },
     });
   };
@@ -54,7 +62,10 @@ export default function SignupCreatePage() {
           icon={ProfileIcon}
           placeholder="성함"
           value={name}
-          onChange={setName}
+          onChange={(value) => {
+            setName(value);
+            setError("");
+          }}
         />
 
         <div className="mt-[18px]">
@@ -68,25 +79,27 @@ export default function SignupCreatePage() {
 
         <div className="mt-[18px]">
           <AuthInput
-            icon={MessageIcon}
-            placeholder="인증번호"
-            value={verificationCode}
-            readOnly
-          />
-        </div>
-
-        <div className="mt-[18px]">
-          <AuthInput
             icon={LockIcon}
             placeholder="비밀번호"
             value={password}
-            onChange={setPassword}
+            onChange={(value) => {
+              setPassword(value);
+              setError("");
+            }}
             type="password"
           />
         </div>
+
+        {error && (
+          <p className="mt-[9px] text-center text-[12px] font-light text-[#ff5b5b] tracking-[-0.02em]">
+            {error}
+          </p>
+        )}
       </main>
 
-      <BottomButton onClick={handleNext}>다음</BottomButton>
+      <BottomButton onClick={handleNext} disabled={!canGoNext}>
+        다음
+      </BottomButton>
     </MobileLayout>
   );
 }

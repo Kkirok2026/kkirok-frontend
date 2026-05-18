@@ -2,6 +2,7 @@ export default function BottomButton({
   children,
   onClick,
   type = "button",
+  disabled = false,
   className = "",
   bottomClassName = "bottom-[72px]",
 }) {
@@ -9,6 +10,7 @@ export default function BottomButton({
     <button
       type={type}
       onClick={onClick}
+      disabled={disabled}
       style={{
         backgroundColor: "#000000",
         color: "#ffffff",
@@ -21,6 +23,7 @@ export default function BottomButton({
         "text-[15px] font-bold tracking-[-0.02em]",
         "shadow-[0_18px_24px_rgba(0,0,0,0.22)]",
         "active:scale-[0.98] transition",
+        "disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100",
         className,
       ].join(" ")}
     >

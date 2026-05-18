@@ -4,8 +4,32 @@ import { useLocation, useNavigate } from "react-router-dom";
 import MobileLayout from "../components/layout/MobileLayout";
 import KkirokLogo from "../components/common/KkirokLogo";
 import BottomNavButtons from "../components/common/BottomNavButtons";
-import BottomNav from "../components/layout/BottomNav";
 import { getAllergies, getMe } from "../api/userApi";
+
+const INPUT_LABEL_STYLE = {
+  fontSize: "11px",
+  lineHeight: "1",
+  fontWeight: 300,
+};
+
+const INPUT_VALUE_STYLE = {
+  fontSize: "10px",
+  lineHeight: "1",
+  fontWeight: 300,
+};
+
+const PILL_STYLE = {
+  height: "26px",
+  minWidth: "58px",
+  borderRadius: "999px",
+  padding: "0 16px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: "12px",
+  lineHeight: "1",
+  fontWeight: 300,
+};
 
 function cleanDecimal(value) {
   return `${value ?? ""}`.replace(/[^\d.]/g, "");
@@ -13,6 +37,21 @@ function cleanDecimal(value) {
 
 function cleanInteger(value) {
   return `${value ?? ""}`.replace(/[^\d]/g, "");
+}
+
+function UnitPill({ children }) {
+  return (
+    <span
+      style={{
+        ...PILL_STYLE,
+        backgroundColor: "#f1f0e9",
+        color: "#6f7075",
+      }}
+      className="ml-[8px] shrink-0"
+    >
+      {children}
+    </span>
+  );
 }
 
 function EditInput({
@@ -25,46 +64,99 @@ function EditInput({
   inputMode = "text",
 }) {
   return (
-    <div className="h-[48px] rounded-[14px] border border-[#f7f8f8] bg-[#f7f8f8] px-[15px] flex items-center">
-      <span className="shrink-0 text-[16px] text-[#8a8c90]">
+    <div
+      className="rounded-[10px] bg-[#f8f8f8] px-[13px] flex items-center"
+      style={{
+        height: "44px",
+      }}
+    >
+      <span
+        className="shrink-0 text-[#9f9f9f] tracking-[-0.02em]"
+        style={INPUT_LABEL_STYLE}
+      >
         {label}
-        {required && <span className="text-[#ff7b45]">*</span>}
+        {required && <span className="ml-[1px] text-[#ff7b45]">*</span>}
       </span>
+
       <input
         type="text"
         inputMode={inputMode}
         value={value}
         readOnly={readOnly}
         onChange={(event) => onChange?.(event.target.value)}
-        className="ml-[18px] min-w-0 flex-1 bg-transparent text-[16px] text-[#272932] outline-none read-only:text-[#8a8c90]"
+        className={[
+          "ml-[18px] min-w-0 flex-1 bg-transparent outline-none",
+          "text-[#272932] caret-[#272932]",
+          readOnly ? "text-[#8a8c90]" : "",
+        ].join(" ")}
+        style={INPUT_VALUE_STYLE}
       />
-      {unit && (
-        <span className="ml-[8px] flex h-[28px] min-w-[84px] items-center justify-center rounded-full bg-[#f1f0e8] text-[16px] text-[#666]">
-          {unit}
-        </span>
-      )}
+
+      {unit && <UnitPill>{unit}</UnitPill>}
     </div>
   );
 }
 
-function SegmentedButton({ selected, children, onClick }) {
+function GenderPill({ selected, children, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={[
-        "h-[28px] min-w-[84px] rounded-full px-[14px] text-[12px] transition",
-        selected ? "bg-[#f1f0e8] text-[#666]" : "bg-[#fefcfb] text-[#a9abaf]",
-      ].join(" ")}
+      style={{
+        ...PILL_STYLE,
+        backgroundColor: selected ? "#f1f0e9" : "#ffffff",
+        color: selected ? "#6f7075" : "#b8b8b8",
+        border: selected ? "none" : "1px solid #f1f0e9",
+      }}
+      className="shrink-0 transition"
     >
       {children}
     </button>
   );
 }
 
+function GenderSelector({ value, onChange }) {
+  return (
+    <div
+      className="rounded-[10px] bg-[#f8f8f8] px-[13px] flex items-center"
+      style={{
+        height: "44px",
+      }}
+    >
+      <span
+        className="shrink-0 text-[#9f9f9f] tracking-[-0.02em]"
+        style={INPUT_LABEL_STYLE}
+      >
+        성별
+      </span>
+
+      <div className="ml-auto flex items-center gap-[6px]">
+        <GenderPill
+          selected={value === "MALE"}
+          onClick={() => onChange("MALE")}
+        >
+          male
+        </GenderPill>
+
+        <GenderPill
+          selected={value === "FEMALE"}
+          onClick={() => onChange("FEMALE")}
+        >
+          female
+        </GenderPill>
+      </div>
+    </div>
+  );
+}
+
+function allergyLabel(items) {
+  return items.map((allergy) => allergy.name).filter(Boolean).join(", ");
+}
+
 export default function ProfileEditPage() {
   const navigate = useNavigate();
   const location = useLocation();
+
   const previousState = location.state ?? {};
   const hasPreviousState = Object.keys(previousState).length > 0;
 
@@ -73,14 +165,18 @@ export default function ProfileEditPage() {
   const [weight, setWeight] = useState(previousState.weight ?? "");
   const [age, setAge] = useState(previousState.age ?? "");
   const [gender, setGender] = useState(previousState.gender ?? "FEMALE");
-  const [allergyText, setAllergyText] = useState(previousState.allergyText ?? "");
+  const [allergyText, setAllergyText] = useState(
+    previousState.allergyText ?? ""
+  );
   const [targetWeight, setTargetWeight] = useState(
     previousState.targetWeight ?? ""
   );
   const [periodValue, setPeriodValue] = useState(
-    previousState.periodValue ?? ""
+    previousState.periodValue ?? "1"
   );
-  const [periodUnit, setPeriodUnit] = useState(previousState.periodUnit ?? "month");
+  const [periodUnit, setPeriodUnit] = useState(
+    previousState.periodUnit ?? "month"
+  );
   const [activityLevel, setActivityLevel] = useState(
     previousState.activityLevel ?? "LOW_ACTIVE"
   );
@@ -109,12 +205,12 @@ export default function ProfileEditPage() {
         setWeight(`${profile.weightKg ?? ""}`);
         setAge(`${meResponse?.age ?? ""}`);
         setGender(profile.gender || "FEMALE");
-        setAllergyText(allergyItems.map((allergy) => allergy.name).join(", "));
+        setAllergyText(allergyLabel(allergyItems));
         setTargetWeight(`${profile.targetWeightKg ?? ""}`);
-        setPeriodValue(`${profile.targetPeriodValue ?? ""}`);
-        setPeriodUnit(
-          profile.targetPeriodUnit === "WEEK" ? "week" : "month"
+        setPeriodValue(
+          `${profile.targetPeriodValue ?? (profile.targetWeightKg ? 1 : "")}`
         );
+        setPeriodUnit(profile.targetPeriodUnit === "WEEK" ? "week" : "month");
         setActivityLevel(profile.activityLevel || "LOW_ACTIVE");
       } catch (loadError) {
         if (ignore) return;
@@ -171,74 +267,91 @@ export default function ProfileEditPage() {
 
   return (
     <MobileLayout>
-      <header className="absolute left-0 right-0 top-[83px] flex flex-col items-center">
-        <p className="text-[16px] leading-[24px] text-[#1d1617]">
-          Create account
+      <header className="absolute left-0 right-0 top-[88px] flex flex-col items-center">
+        <p
+          className="text-[#1d1617] tracking-[-0.02em]"
+          style={{
+            fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+            fontSize: "14px",
+            lineHeight: "17px",
+            fontWeight: 400,
+          }}
+        >
+          modify account
         </p>
-        <KkirokLogo className="mt-[-2px]" />
+
+        <KkirokLogo className="mt-[2px]" />
       </header>
 
-      <main className="absolute left-[33px] right-[34px] top-[337px] space-y-[15px]">
+      <main className="absolute left-[33px] right-[34px] top-[270px]">
         {error && (
-          <p className="text-center text-[12px] text-[#ff5b5b]">{error}</p>
+          <p className="mb-[10px] text-center text-[11px] text-[#ff5b5b]">
+            {error}
+          </p>
         )}
 
         <EditInput
           label="키"
           value={height}
-          onChange={(value) => setHeight(cleanDecimal(value))}
+          onChange={(value) => {
+            setHeight(cleanDecimal(value));
+            setError("");
+          }}
           unit="cm"
           required
           inputMode="decimal"
         />
-        <EditInput
-          label="몸무게"
-          value={weight}
-          onChange={(value) => setWeight(cleanDecimal(value))}
-          unit="kg"
-          required
-          inputMode="decimal"
-        />
-        <EditInput
-          label="나이"
-          value={age}
-          onChange={(value) => setAge(cleanInteger(value))}
-          inputMode="numeric"
-        />
-        <EditInput label="BMI(자동)" value={bmi} readOnly />
 
-        <div className="h-[48px] rounded-[14px] border border-[#f7f8f8] bg-[#f7f8f8] px-[15px] flex items-center">
-          <span className="text-[16px] text-[#8a8c90]">성별</span>
-          <div className="ml-auto flex gap-[6px]">
-            <SegmentedButton
-              selected={gender === "MALE"}
-              onClick={() => setGender("MALE")}
-            >
-              male
-            </SegmentedButton>
-            <SegmentedButton
-              selected={gender === "FEMALE"}
-              onClick={() => setGender("FEMALE")}
-            >
-              female
-            </SegmentedButton>
-          </div>
+        <div className="mt-[13px]">
+          <EditInput
+            label="몸무게"
+            value={weight}
+            onChange={(value) => {
+              setWeight(cleanDecimal(value));
+              setError("");
+            }}
+            unit="kg"
+            required
+            inputMode="decimal"
+          />
         </div>
 
-        <EditInput
-          label="알레르기"
-          value={allergyText}
-          onChange={setAllergyText}
-        />
+        <div className="mt-[13px]">
+          <EditInput
+            label="나이"
+            value={age}
+            onChange={(value) => {
+              setAge(cleanInteger(value));
+              setError("");
+            }}
+            inputMode="numeric"
+          />
+        </div>
+
+        <div className="mt-[13px]">
+          <EditInput label="BMI(자동)" value={bmi} readOnly />
+        </div>
+
+        <div className="mt-[13px]">
+          <GenderSelector value={gender} onChange={setGender} />
+        </div>
+
+        <div className="mt-[13px]">
+          <EditInput
+            label="알레르기"
+            value={allergyText}
+            onChange={setAllergyText}
+          />
+        </div>
       </main>
 
       <BottomNavButtons
         onPrev={() => navigate("/profile")}
         onNext={handleNext}
-        bottomClassName="bottom-[112px]"
+        prevText="이전"
+        nextText="다음"
+        bottomClassName="bottom-[24px]"
       />
-
-      <BottomNav />
     </MobileLayout>
   );
 }

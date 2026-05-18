@@ -4,7 +4,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import MobileLayout from "../components/layout/MobileLayout";
 import KkirokLogo from "../components/common/KkirokLogo";
 import BottomNavButtons from "../components/common/BottomNavButtons";
-import BottomNav from "../components/layout/BottomNav";
 import {
   addAllergy,
   deleteAllergy,
@@ -14,15 +13,27 @@ import {
 } from "../api/userApi";
 import { genderToApi, targetPeriodUnitToApi } from "../utils/mealData";
 
+const LABEL_STYLE = {
+  fontSize: "11px",
+  lineHeight: "1",
+  fontWeight: 300,
+};
+
+const VALUE_STYLE = {
+  fontSize: "10px",
+  lineHeight: "1",
+  fontWeight: 300,
+};
+
 const PILL_STYLE = {
-  height: "28px",
-  minWidth: "84px",
+  height: "26px",
+  minWidth: "58px",
   borderRadius: "999px",
   padding: "0 16px",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  fontSize: "16px",
+  fontSize: "12px",
   lineHeight: "1",
   fontWeight: 300,
 };
@@ -36,7 +47,7 @@ function cleanInteger(value) {
 }
 
 function csvToNames(value) {
-  return value
+  return `${value ?? ""}`
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
@@ -44,7 +55,7 @@ function csvToNames(value) {
 
 function UnitPill({ children }) {
   return (
-    <div
+    <span
       className="ml-[8px] shrink-0"
       style={{
         ...PILL_STYLE,
@@ -53,7 +64,7 @@ function UnitPill({ children }) {
       }}
     >
       {children}
-    </div>
+    </span>
   );
 }
 
@@ -67,6 +78,7 @@ function SelectPill({ selected, children, onClick }) {
         ...PILL_STYLE,
         backgroundColor: selected ? "#f1f0e9" : "#ffffff",
         color: selected ? "#6f7075" : "#b8b8b8",
+        border: selected ? "none" : "1px solid #f1f0e9",
       }}
     >
       {children}
@@ -84,10 +96,16 @@ function GoalInput({
   inputMode = "text",
 }) {
   return (
-    <div className="h-[48px] rounded-[14px] border border-[#f7f8f8] bg-[#f7f8f8] px-[15px] flex items-center">
-      <span className="shrink-0 text-[16px] text-[#8a8c90]">
+    <div
+      className="rounded-[10px] bg-[#f8f8f8] px-[13px] flex items-center"
+      style={{ height: "44px" }}
+    >
+      <span
+        className="shrink-0 text-[#9f9f9f] tracking-[-0.02em]"
+        style={LABEL_STYLE}
+      >
         {label}
-        {required && <span className="text-[#ff7b45]">*</span>}
+        {required && <span className="ml-[1px] text-[#ff7b45]">*</span>}
       </span>
 
       <input
@@ -95,10 +113,12 @@ function GoalInput({
         inputMode={inputMode}
         value={value}
         onChange={(event) => onChange?.(event.target.value)}
-        className="ml-[18px] min-w-0 flex-1 bg-transparent text-[16px] text-[#272932] outline-none"
+        className="ml-[18px] min-w-0 flex-1 bg-transparent text-[#272932] outline-none caret-[#272932]"
+        style={VALUE_STYLE}
       />
 
       {unit && <UnitPill>{unit}</UnitPill>}
+
       {children}
     </div>
   );
@@ -107,6 +127,7 @@ function GoalInput({
 export default function ProfileGoalEditPage() {
   const navigate = useNavigate();
   const location = useLocation();
+
   const previousState = location.state ?? {};
 
   const [allergies, setAllergies] = useState(previousState.allergies ?? []);
@@ -114,7 +135,9 @@ export default function ProfileGoalEditPage() {
   const [weight, setWeight] = useState(previousState.weight ?? "");
   const [age, setAge] = useState(previousState.age ?? "");
   const [gender, setGender] = useState(previousState.gender ?? "FEMALE");
-  const [allergyText, setAllergyText] = useState(previousState.allergyText ?? "");
+  const [allergyText, setAllergyText] = useState(
+    previousState.allergyText ?? ""
+  );
   const [activityLevel, setActivityLevel] = useState(
     previousState.activityLevel ?? "LOW_ACTIVE"
   );
@@ -122,9 +145,11 @@ export default function ProfileGoalEditPage() {
     previousState.targetWeight ?? ""
   );
   const [periodValue, setPeriodValue] = useState(
-    previousState.periodValue ?? ""
+    previousState.periodValue ?? "1"
   );
-  const [periodUnit, setPeriodUnit] = useState(previousState.periodUnit ?? "month");
+  const [periodUnit, setPeriodUnit] = useState(
+    previousState.periodUnit ?? "month"
+  );
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -153,7 +178,9 @@ export default function ProfileGoalEditPage() {
         setAllergyText(allergyItems.map((allergy) => allergy.name).join(", "));
         setActivityLevel(profile.activityLevel || "LOW_ACTIVE");
         setTargetWeight(`${profile.targetWeightKg ?? ""}`);
-        setPeriodValue(`${profile.targetPeriodValue ?? ""}`);
+        setPeriodValue(
+          `${profile.targetPeriodValue ?? (profile.targetWeightKg ? 1 : "")}`
+        );
         setPeriodUnit(profile.targetPeriodUnit === "WEEK" ? "week" : "month");
       } catch (loadError) {
         if (ignore) return;
@@ -201,7 +228,7 @@ export default function ProfileGoalEditPage() {
     setError("");
 
     try {
-      const targetPeriodValue = periodValue ? Number(periodValue) : null;
+      const targetPeriodValue = targetWeight ? Number(periodValue || 1) : null;
 
       await updateProfile({
         gender: genderToApi(gender),
@@ -242,8 +269,16 @@ export default function ProfileGoalEditPage() {
           )
       );
 
-      navigate("/profile");
+      navigate("/profile", {
+        replace: true,
+        state: { refreshedAt: Date.now() },
+      });
     } catch (saveError) {
+      if (saveError.status === 401) {
+        navigate("/login", { replace: true });
+        return;
+      }
+
       setError(saveError.message || "프로필을 저장하지 못했습니다.");
     } finally {
       setIsSaving(false);
@@ -252,52 +287,79 @@ export default function ProfileGoalEditPage() {
 
   return (
     <MobileLayout>
-      <header className="absolute left-0 right-0 top-[83px] flex flex-col items-center">
-        <p className="text-[16px] leading-[24px] text-[#1d1617]">
-          Create account
+      <header className="absolute left-0 right-0 top-[88px] flex flex-col items-center">
+        <p
+          className="text-[#1d1617] tracking-[-0.02em]"
+          style={{
+            fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+            fontSize: "14px",
+            lineHeight: "17px",
+            fontWeight: 400,
+          }}
+        >
+          modify account
         </p>
-        <KkirokLogo className="mt-[-2px]" />
+
+        <KkirokLogo className="mt-[2px]" />
       </header>
 
-      <p className="absolute left-0 right-0 top-[292px] text-center text-[18px] font-light text-[#272932] tracking-[-0.02em]">
+      <p
+        className="absolute left-0 right-0 top-[238px] text-center text-[#272932] tracking-[-0.02em]"
+        style={{
+          fontSize: "14px",
+          lineHeight: "18px",
+          fontWeight: 300,
+        }}
+      >
         목표를 입력해주세요
       </p>
 
-      <main className="absolute left-[33px] right-[34px] top-[437px] space-y-[21px]">
+      <main className="absolute left-[33px] right-[34px] top-[326px]">
         {error && (
-          <p className="text-center text-[12px] text-[#ff5b5b]">{error}</p>
+          <p className="mb-[10px] text-center text-[11px] text-[#ff5b5b]">
+            {error}
+          </p>
         )}
 
         <GoalInput
           label="몸무게"
           required
           value={targetWeight}
-          onChange={(value) => setTargetWeight(cleanDecimal(value))}
+          onChange={(value) => {
+            setTargetWeight(cleanDecimal(value));
+            setError("");
+          }}
           unit="kg"
           inputMode="decimal"
         />
 
-        <GoalInput
-          label="기간(Days)"
-          value={periodValue}
-          onChange={(value) => setPeriodValue(cleanInteger(value))}
-          inputMode="numeric"
-        >
-          <div className="ml-auto flex items-center gap-[6px]">
-            <SelectPill
-              selected={periodUnit === "month"}
-              onClick={() => setPeriodUnit("month")}
-            >
-              month
-            </SelectPill>
-            <SelectPill
-              selected={periodUnit === "week"}
-              onClick={() => setPeriodUnit("week")}
-            >
-              week
-            </SelectPill>
-          </div>
-        </GoalInput>
+        <div className="mt-[22px]">
+          <GoalInput
+            label="기간(Days)"
+            value={periodValue}
+            onChange={(value) => {
+              setPeriodValue(cleanInteger(value));
+              setError("");
+            }}
+            inputMode="numeric"
+          >
+            <div className="ml-auto flex items-center gap-[6px]">
+              <SelectPill
+                selected={periodUnit === "month"}
+                onClick={() => setPeriodUnit("month")}
+              >
+                month
+              </SelectPill>
+
+              <SelectPill
+                selected={periodUnit === "week"}
+                onClick={() => setPeriodUnit("week")}
+              >
+                week
+              </SelectPill>
+            </div>
+          </GoalInput>
+        </div>
       </main>
 
       <BottomNavButtons
@@ -305,10 +367,8 @@ export default function ProfileGoalEditPage() {
         onNext={handleSave}
         prevText="이전"
         nextText={isSaving ? "수정 중" : "수정"}
-        bottomClassName="bottom-[112px]"
+        bottomClassName="bottom-[40px]"
       />
-
-      <BottomNav />
     </MobileLayout>
   );
 }
