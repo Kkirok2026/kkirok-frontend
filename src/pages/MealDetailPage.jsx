@@ -96,6 +96,7 @@ function normalizeFoodItem(item, index) {
     return {
       itemName: item,
       foodId: null,
+      mealLogId: null,
       mealLogItemId: null,
       fallbackKey: `${item}-${index}`,
     };
@@ -107,6 +108,7 @@ function normalizeFoodItem(item, index) {
     ...item,
     itemName,
     foodId: getFoodId(item),
+    mealLogId: item.mealLogId || null,
     mealLogItemId: item.mealLogItemId || null,
     fallbackKey:
       item.mealLogItemId ||
@@ -154,70 +156,70 @@ function FoodRow({ item, onOpenDetail, onOpenDelete }) {
 
 function DeleteModal({ isDeleting, onClose, onDelete }) {
   return (
-    <div
-      className="absolute inset-0 z-50 flex items-center justify-center"
-      style={{
-        backgroundColor: "rgba(0, 0, 0, 0.32)",
-      }}
-    >
-      <div
-        className="relative rounded-[8px] bg-white"
-        style={{
-          width: "280px",
-          minHeight: "190px",
-          padding: "30px 28px 26px",
-        }}
-      >
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute left-[24px] top-[22px] text-[#272932]"
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#1f1f1f]">
+      <div className="flex h-dvh w-full max-w-[430px] items-center justify-center">
+        <div
+          className="rounded-[10px] bg-white"
           style={{
-            fontSize: "20px",
-            lineHeight: "1",
-            fontWeight: 300,
+            width: "280px",
+            minHeight: "190px",
+            padding: "28px 28px 24px",
           }}
         >
-          x
-        </button>
+          <div className="flex items-center">
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="닫기"
+              className="flex h-[24px] w-[24px] shrink-0 items-center justify-center text-[#272932]"
+              style={{
+                fontSize: "22px",
+                lineHeight: "1",
+                fontWeight: 300,
+              }}
+            >
+              ×
+            </button>
 
-        <p
-          className="text-center text-[#272932] tracking-[-0.03em]"
-          style={{
-            fontSize: "16px",
-            lineHeight: "1",
-            fontWeight: 700,
-          }}
-        >
-          식단에서 제외하시겠습니까?
-        </p>
+            <p
+              className="ml-[14px] text-[#272932] tracking-[-0.03em]"
+              style={{
+                fontSize: "16px",
+                lineHeight: "1",
+                fontWeight: 700,
+              }}
+            >
+              식단에서 제외하시겠습니까?
+            </p>
+          </div>
 
-        <p
-          className="mt-[42px] text-center text-[#272932] tracking-[-0.03em]"
-          style={{
-            fontSize: "13px",
-            lineHeight: "1.4",
-            fontWeight: 500,
-          }}
-        >
-          제외된 항목은 홈 요약 계산에서 빠집니다.
-        </p>
+          <p
+            className="mt-[42px] text-center text-[#272932] tracking-[-0.03em]"
+            style={{
+              fontSize: "13px",
+              lineHeight: "1.4",
+              fontWeight: 500,
+            }}
+          >
+            삭제된 식단은 다시 불러올 수 없습니다.
+          </p>
 
-        <button
-          type="button"
-          onClick={onDelete}
-          disabled={isDeleting}
-          className="mt-[34px] flex w-full items-center justify-center rounded-[7px] text-white tracking-[-0.02em] disabled:opacity-50"
-          style={{
-            height: "40px",
-            backgroundColor: "#272932",
-            color: "#ffffff",
-            fontSize: "13px",
-            fontWeight: 700,
-          }}
-        >
-          {isDeleting ? "제외 중..." : "제외"}
-        </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={isDeleting}
+            className="mt-[34px] flex w-full items-center justify-center rounded-[7px] text-white tracking-[-0.02em] disabled:opacity-50"
+            style={{
+              height: "40px",
+              backgroundColor: "#272932",
+              color: "#ffffff",
+              fontSize: "13px",
+              fontWeight: 700,
+            }}
+          >
+            {isDeleting ? "삭제 중..." : "삭제"}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -265,7 +267,9 @@ export default function MealDetailPage() {
     let ignore = false;
 
     async function loadMealDetail() {
-      if (!initialMeal.mealLogId) {
+      const hasMergedMealLogs = initialMeal.mealLogIds?.length > 1;
+
+      if (!initialMeal.mealLogId || hasMergedMealLogs) {
         setIsLoading(false);
         return;
       }
@@ -295,7 +299,7 @@ export default function MealDetailPage() {
     return () => {
       ignore = true;
     };
-  }, [initialMeal.mealLogId, mealKey]);
+  }, [initialMeal.mealLogId, initialMeal.mealLogIds, mealKey]);
 
   const mealLabel = getMealLabel({
     mealKey: meal.mealKey || mealKey,
@@ -315,7 +319,7 @@ export default function MealDetailPage() {
     );
   }, [meal.items, meal.foods]);
 
-  const recordDate = location.state?.date || formatDateKey(new Date());
+  const recordDate = location.state?.date || meal.logDate || formatDateKey(new Date());
 
   const handleOpenFoodDetail = (item) => {
     const itemName = item.itemName;
@@ -335,9 +339,11 @@ export default function MealDetailPage() {
       query.set("mealType", meal.mealType);
     }
 
-    if (meal.mealLogId) {
-      query.set("mealLogId", String(meal.mealLogId));
+    if (item.mealLogId || meal.mealLogId) {
+      query.set("mealLogId", String(item.mealLogId || meal.mealLogId));
     }
+
+    query.set("source", "meal-detail");
 
     const queryString = query.toString();
 
@@ -349,6 +355,7 @@ export default function MealDetailPage() {
         },
         meal,
         date: recordDate,
+        fromMealDetail: true,
       },
     });
   };
@@ -361,13 +368,19 @@ export default function MealDetailPage() {
     const searchParams = new URLSearchParams({
       mealType: targetMealType,
       date: recordDate,
+      source: "meal-add",
     });
+
+    if (meal.mealLogId) {
+      searchParams.set("mealLogId", String(meal.mealLogId));
+    }
 
     navigate(`/search?${searchParams.toString()}`, {
       state: {
         mealKey: targetMealKey,
         meal,
         date: recordDate,
+        source: "meal-add",
       },
     });
   };
@@ -375,7 +388,9 @@ export default function MealDetailPage() {
   const handleDelete = async () => {
     if (!pendingDeleteItem) return;
 
-    if (!meal.mealLogId || !pendingDeleteItem.mealLogItemId) {
+    const targetMealLogId = pendingDeleteItem.mealLogId || meal.mealLogId;
+
+    if (!targetMealLogId || !pendingDeleteItem.mealLogItemId) {
       const targetName = pendingDeleteItem.itemName;
 
       setMeal((prev) => ({
@@ -397,7 +412,7 @@ export default function MealDetailPage() {
 
     try {
       const response = await setMealLogItemExcluded({
-        mealLogId: meal.mealLogId,
+        mealLogId: targetMealLogId,
         mealLogItemId: pendingDeleteItem.mealLogItemId,
         excluded: true,
       });
@@ -405,7 +420,7 @@ export default function MealDetailPage() {
       setMeal(toMealDisplay(response, mealKey));
       setPendingDeleteItem(null);
     } catch (deleteError) {
-      setError(deleteError.message || "식단 항목을 제외하지 못했습니다.");
+      setError(deleteError.message || "식단 항목을 삭제하지 못했습니다.");
     } finally {
       setIsDeleting(false);
     }
@@ -413,7 +428,6 @@ export default function MealDetailPage() {
 
   return (
     <MobileLayout>
-      {/* 뒤로가기 버튼: header 밖에 따로 빼고, inline style로 회색 정사각형 강제 적용 */}
       <button
         type="button"
         onClick={() => navigate(-1)}
@@ -421,15 +435,15 @@ export default function MealDetailPage() {
         className="absolute z-30 flex items-center justify-center transition active:scale-[0.96]"
         style={{
           left: "24px",
-  top: "60px",
-  width: "34px",
-  height: "34px",
-  padding: 0,
-  borderRadius: "9px",
-  backgroundColor: "#f4f4f4",
-  border: "1px solid #eeeeee",
-  boxShadow: "0 1px 4px rgba(0, 0, 0, 0.04)",
-  color: "#272932",
+          top: "54px",
+          width: "34px",
+          height: "34px",
+          padding: 0,
+          borderRadius: "9px",
+          backgroundColor: "#f4f4f4",
+          border: "1px solid #eeeeee",
+          boxShadow: "0 1px 4px rgba(0, 0, 0, 0.04)",
+          color: "#272932",
         }}
       >
         <span
@@ -453,7 +467,7 @@ export default function MealDetailPage() {
         <KkirokLogo className="mt-[5px]" />
       </header>
 
-      <main className="absolute left-[24px] right-[24px] top-[166px]">
+      <main className="absolute left-[58px] right-[58px] top-[166px]">
         <h1
           className="text-[28px] text-[#272932] tracking-[-0.05em]"
           style={{
@@ -501,7 +515,6 @@ export default function MealDetailPage() {
               {mealLabel} 식단
             </h2>
 
-            {/* + 버튼: 빨간 테두리 박스 강제 적용 */}
             <button
               type="button"
               onClick={handleOpenSearch}

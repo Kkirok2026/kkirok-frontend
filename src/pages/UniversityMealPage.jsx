@@ -4,8 +4,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import MobileLayout from "../components/layout/MobileLayout";
 import PageHeader from "../components/layout/PageHeader";
 import BottomNav from "../components/layout/BottomNav";
-import CalendarModal from "../components/common/CalendarModal";
-import Modal from "../components/common/Modal";
 import { addMenuOption } from "../api/mealLogApi";
 import { compareMenus } from "../api/menuApi";
 import { getMe } from "../api/userApi";
@@ -18,9 +16,14 @@ import {
 
 const DINING_TYPE_ORDER = ["STUDENT", "DORMITORY"];
 
-const DINING_TYPE_LABELS = {
-  STUDENT: "학생식당",
-  DORMITORY: "생활관 식당",
+const COLORS = {
+  dark: "#272932",
+  tabDark: "#4f525b",
+  lightTab: "#f3f3f4",
+  inactiveText: "#a8a8a8",
+  green: "#6daa0f",
+  orangeBorder: "#f0935c",
+  grayBorder: "#b9b0ad",
 };
 
 function optionLines(optionName = "") {
@@ -43,6 +46,63 @@ function enrichOption(option, place) {
   };
 }
 
+function MealTypeTabs({ mealType, onChange }) {
+  const tabs = [
+    { value: "LUNCH", label: "점심" },
+    { value: "DINNER", label: "저녁" },
+  ];
+
+  return (
+    <div className="mx-[22px] mb-[24px] grid h-[56px] grid-cols-2 rounded-full bg-[#f5f5f5] p-[9px]">
+      {tabs.map((tab) => {
+        const active = mealType === tab.value;
+
+        return (
+          <button
+            key={tab.value}
+            type="button"
+            onClick={() => onChange(tab.value)}
+            className="h-[38px] rounded-full text-[15px] font-bold transition"
+            style={{
+              backgroundColor: active ? COLORS.dark : "transparent",
+              color: active ? "#ffffff" : COLORS.inactiveText,
+            }}
+          >
+            {tab.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function CategoryTabs({ options, activeOptionId, onSelect }) {
+  if (options.length === 0) return null;
+
+  return (
+    <div className="mx-[22px] mb-[16px] flex h-[33px] rounded-[7px] bg-[#eeeeef] p-[2px]">
+      {options.map((option) => {
+        const active = option.optionId === activeOptionId;
+
+        return (
+          <button
+            type="button"
+            key={option.optionId}
+            onClick={() => onSelect(option)}
+            className="h-full min-w-0 flex-1 rounded-[6px] px-[8px] truncate text-[11px] font-semibold transition"
+            style={{
+              backgroundColor: active ? COLORS.tabDark : "transparent",
+              color: active ? "#ffffff" : "#555861",
+            }}
+          >
+            {categoryLabel(option)}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function MenuCard({ item, selected, onSelect }) {
   const nutrients = item?.nutrients || {};
   const lines = optionLines(item?.optionName);
@@ -52,20 +112,21 @@ function MenuCard({ item, selected, onSelect }) {
     <button
       type="button"
       onClick={() => onSelect(item)}
-      className={[
-        "mb-[28px] w-full rounded-[18px] border bg-white px-[28px] py-[30px]",
-        "grid grid-cols-[92px_1fr] gap-[20px] text-left transition",
-        selected
-          ? "border-[#ff8b45] shadow-[0_18px_34px_rgba(255,139,69,0.14)]"
-          : "border-[#d8d0d0] shadow-[0_14px_26px_rgba(39,41,50,0.04)]",
-      ].join(" ")}
+      className="w-full min-h-[154px] rounded-[18px] border bg-white grid grid-cols-[116px_1fr] items-center gap-[10px] px-[28px] py-[26px] text-left transition"
+      style={{
+        border: `1.2px solid ${selected ? "#B87850" : "#B87850"}`,
+        boxShadow: "none",
+      }}
     >
       <div>
-        <p className="text-[22px] font-extrabold leading-none text-[#6daa0f]">
+        <p
+          className="text-[22px] font-extrabold leading-none tracking-[-0.03em]"
+          style={{ color: COLORS.green }}
+        >
           {toRounded(nutrients.caloriesKcal)} kcal
         </p>
 
-        <div className="mt-[12px] space-y-[6px] text-[10px] font-light text-[#6f7075]">
+        <div className="mt-[15px] space-y-[7px] text-[10px] font-light text-[#6f7075]">
           <p>탄수화물 : {toRounded(nutrients.carbG)}g</p>
           <p>단백질 : {toRounded(nutrients.proteinG)}g</p>
           <p>지방 : {toRounded(nutrients.fatG)}g</p>
@@ -76,7 +137,7 @@ function MenuCard({ item, selected, onSelect }) {
         {lines.length > 0 ? (
           lines.map((line) => <p key={line}>{line}</p>)
         ) : (
-          <p>{item?.categoryName || "메뉴 정보 없음"}</p>
+          <p>{categoryLabel(item)}</p>
         )}
 
         {warnings.length > 0 && (
@@ -86,33 +147,6 @@ function MenuCard({ item, selected, onSelect }) {
         )}
       </div>
     </button>
-  );
-}
-
-function CategoryTabs({ options, activeOptionId, onSelect }) {
-  if (options.length === 0) return null;
-
-  return (
-    <div className="mb-[16px] flex rounded-[8px] bg-[#f1f1f2] p-[3px]">
-      {options.map((option) => {
-        const active = option.optionId === activeOptionId;
-
-        return (
-          <button
-            type="button"
-            key={option.optionId}
-            onClick={() => onSelect(option)}
-            className={[
-              "h-[29px] min-w-0 flex-1 rounded-[7px] px-[8px]",
-              "truncate text-[11px] font-medium transition",
-              active ? "bg-[#5b5e68] text-white" : "text-[#565862]",
-            ].join(" ")}
-          >
-            {categoryLabel(option)}
-          </button>
-        );
-      })}
-    </div>
   );
 }
 
@@ -129,11 +163,6 @@ function DiningSection({
 
   return (
     <section>
-      <p className="mb-[8px] text-[11px] font-bold text-[#8a8c90]">
-        {DINING_TYPE_LABELS[activeOption.diningPlaceType] ||
-          activeOption.diningPlaceName}
-      </p>
-
       <CategoryTabs
         options={options}
         activeOptionId={activeOption.optionId}
@@ -151,20 +180,14 @@ function DiningSection({
 
 export default function UniversityMealPage() {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
 
-  const [mealType, setMealType] = useState("LUNCH");
-  const [selectedDate, setSelectedDate] = useState(
-    () => parseDateKey(searchParams.get("date")) || new Date()
+  const date = formatDateKey(
+    parseDateKey(searchParams.get("date")) || new Date()
   );
 
-  const date = formatDateKey(selectedDate);
-
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [isAddConfirmOpen, setIsAddConfirmOpen] = useState(false);
-
+  const [mealType, setMealType] = useState("LUNCH");
   const [universityId, setUniversityId] = useState(null);
-  const [universityName, setUniversityName] = useState("");
   const [dailyMenu, setDailyMenu] = useState(null);
 
   const [selectedOptionId, setSelectedOptionId] = useState(null);
@@ -174,27 +197,6 @@ export default function UniversityMealPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState("");
-
-  const updateSelectedDate = (nextDate, options = {}) => {
-    setSelectedDate(nextDate);
-
-    setSearchParams(
-      (current) => {
-        const next = new URLSearchParams(current);
-        next.set("date", formatDateKey(nextDate));
-        return next;
-      },
-      { replace: options.replace ?? false }
-    );
-  };
-
-  useEffect(() => {
-    const queryDate = parseDateKey(searchParams.get("date"));
-
-    if (queryDate && formatDateKey(queryDate) !== date) {
-      setSelectedDate(queryDate);
-    }
-  }, [date, searchParams]);
 
   useEffect(() => {
     let ignore = false;
@@ -211,14 +213,12 @@ export default function UniversityMealPage() {
 
         if (!university?.universityId) {
           setUniversityId(null);
-          setUniversityName("");
           setDailyMenu(null);
           setError("학교 인증 계정만 학식 메뉴를 확인할 수 있습니다.");
           return;
         }
 
         setUniversityId(university.universityId);
-        setUniversityName(university.universityName || "");
       } catch (loadError) {
         if (ignore) return;
 
@@ -249,6 +249,7 @@ export default function UniversityMealPage() {
       setIsLoading(true);
       setError("");
       setSelectedOptionId(null);
+      setActiveOptionIds({});
 
       try {
         const response = await compareMenus({
@@ -322,7 +323,7 @@ export default function UniversityMealPage() {
     const otherTypes = Object.keys(groupedOptions).filter(
       (type) =>
         !DINING_TYPE_ORDER.includes(type) &&
-        groupedOptions[type].length > 0
+        (groupedOptions[type] ?? []).length > 0
     );
 
     return [...knownTypes, ...otherTypes];
@@ -360,7 +361,7 @@ export default function UniversityMealPage() {
   }, [allOptions, groupedOptions, selectedOptionId, visibleDiningTypes]);
 
   const selectedOption = allOptions.find(
-    (item) => item.optionId === selectedOptionId
+    (option) => option.optionId === selectedOptionId
   );
 
   const handleSelectOption = (option) => {
@@ -375,23 +376,26 @@ export default function UniversityMealPage() {
   const handleAddMenu = async () => {
     if (!selectedOption?.optionId || isAdding) return;
 
+    const selectedName = categoryLabel(selectedOption);
+
     setIsAdding(true);
     setError("");
 
     try {
       const response = await addMenuOption({
         menuOptionId: selectedOption.optionId,
-        memo: selectedOption.categoryName || selectedOption.optionName,
+        memo: selectedName,
+        itemName: selectedName,
+        logDate: date,
+        mealType,
       });
-
-      setIsAddConfirmOpen(false);
 
       const meal = toMealDisplay(response);
 
       navigate(`/meal-details/${meal.mealKey}`, {
         state: {
           meal,
-          date,
+          date: meal.logDate || date,
         },
       });
     } catch (addError) {
@@ -406,57 +410,18 @@ export default function UniversityMealPage() {
     }
   };
 
+  const addButtonDisabled = !selectedOption || !universityId || isAdding;
+
   return (
     <MobileLayout>
-      <div className="absolute inset-0 overflow-y-auto px-[38px] pb-[166px]">
+      <div className="absolute inset-0 overflow-y-auto px-[40px] pb-[170px]">
         <PageHeader
           eyebrow="University Meal"
           title="77ㅣ록"
-          className="pb-[80px]"
+          className="!pb-[86px]"
         />
 
-        <button
-          type="button"
-          onClick={() => setIsCalendarOpen(true)}
-          aria-label="식당 메뉴 날짜 선택"
-          className="relative z-30 -mt-[64px] mb-[38px] mx-auto flex h-[36px] min-w-[124px] items-center justify-center rounded-full bg-[#f8f8f8] px-[16px] text-[12px] font-bold text-[#6f7075]"
-        >
-          {date}
-        </button>
-
-        {universityName && (
-          <p className="-mt-[26px] mb-[28px] text-center text-[11px] text-[#a2a2a2]">
-            {universityName}
-          </p>
-        )}
-
-        <div className="mb-[24px] grid grid-cols-2 rounded-full bg-[#f7f7f7] p-[10px]">
-          <button
-            type="button"
-            onClick={() => setMealType("LUNCH")}
-            className={[
-              "h-[40px] rounded-full text-[15px] font-bold transition",
-              mealType === "LUNCH"
-                ? "bg-[#272932] text-white"
-                : "text-[#b8b8b8]",
-            ].join(" ")}
-          >
-            점심
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setMealType("DINNER")}
-            className={[
-              "h-[40px] rounded-full text-[15px] font-bold transition",
-              mealType === "DINNER"
-                ? "bg-[#272932] text-white"
-                : "text-[#b8b8b8]",
-            ].join(" ")}
-          >
-            저녁
-          </button>
-        </div>
+        <MealTypeTabs mealType={mealType} onChange={setMealType} />
 
         {(isResolvingUniversity || isLoading) && (
           <p className="mb-[18px] text-center text-[12px] text-neutral-400">
@@ -474,7 +439,7 @@ export default function UniversityMealPage() {
           visibleDiningTypes.map((type, index) => (
             <div key={type}>
               {index > 0 && (
-                <p className="mb-[28px] text-center text-[30px] font-extrabold leading-none text-[#272932]">
+                <p className="my-[27px] text-center text-[30px] font-extrabold leading-none tracking-[-0.03em] text-[#272932]">
                   VS
                 </p>
               )}
@@ -498,32 +463,59 @@ export default function UniversityMealPage() {
         )}
       </div>
 
-      <div className="absolute bottom-[104px] right-[38px] z-40">
-        <button
-          type="button"
-          onClick={() => setIsAddConfirmOpen(true)}
-          disabled={!selectedOption || !universityId || isAdding}
-          className="flex h-[34px] min-w-[150px] items-center justify-center gap-[18px] rounded-full bg-[#272932] px-[20px] text-[12px] font-bold text-white shadow-[0_12px_24px_rgba(39,41,50,0.18)] disabled:opacity-40"
-        >
-          {isAdding ? "추가 중..." : "내 식단에 추가하기"}
-          <span className="text-[18px] font-light leading-none">+</span>
-        </button>
-      </div>
+      <div
+  className="absolute bottom-[104px] right-[40px] z-40"
+  style={{
+    width: "164px",
+    height: "32px",
+  }}
+>
+  <button
+    type="button"
+    onClick={handleAddMenu}
+    disabled={addButtonDisabled}
+    className="transition disabled:opacity-40"
+    style={{
+      width: "164px",
+      height: "32px",
+      borderRadius: "9999px",
+      backgroundColor: COLORS.dark,
+      color: "#ffffff",
+      boxShadow: "none",
+      border: "none",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingLeft: "18px",
+      paddingRight: "18px",
+      fontSize: "12px",
+      fontWeight: 700,
+      lineHeight: "1",
+      whiteSpace: "nowrap",
+    }}
+  >
+    <span
+      style={{
+        fontSize: "12px",
+        fontWeight: 700,
+        lineHeight: "1",
+      }}
+    >
+      {isAdding ? "추가 중..." : "이걸로 먹을래요"}
+    </span>
 
-      <CalendarModal
-        open={isCalendarOpen}
-        selectedDate={selectedDate}
-        onSelect={updateSelectedDate}
-        onClose={() => setIsCalendarOpen(false)}
-      />
-
-      <Modal
-        open={isAddConfirmOpen}
-        title="식단에 추가하시겠습니까?"
-        confirmText={isAdding ? "추가 중..." : "추가"}
-        onConfirm={handleAddMenu}
-        onCancel={() => setIsAddConfirmOpen(false)}
-      />
+    <span
+      style={{
+        fontSize: "20px",
+        fontWeight: 300,
+        lineHeight: "1",
+        marginTop: "-1px",
+      }}
+    >
+      +
+    </span>
+  </button>
+</div>
 
       <BottomNav />
     </MobileLayout>

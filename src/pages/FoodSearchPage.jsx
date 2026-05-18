@@ -10,13 +10,28 @@ import SearchIcon from "../assets/icons/Search.svg";
 import DuckResultImage from "../assets/images/duck_result.png";
 import DuckCryingImage from "../assets/images/duck_crying.png";
 
-function buildFoodDetailPath(foodId, searchParams) {
-  const nextParams = new URLSearchParams();
+function hasMealTarget(searchParams) {
+  return (
+    searchParams.get("source") === "meal-add" &&
+    Boolean(searchParams.get("mealType"))
+  );
+}
+
+function appendMealTargetParams(nextParams, searchParams) {
+  if (!hasMealTarget(searchParams)) return;
+
+  nextParams.set("source", "meal-add");
 
   for (const key of ["mealType", "date", "mealLogId"]) {
     const value = searchParams.get(key);
     if (value) nextParams.set(key, value);
   }
+}
+
+function buildFoodDetailPath(foodId, searchParams) {
+  const nextParams = new URLSearchParams();
+
+  appendMealTargetParams(nextParams, searchParams);
 
   const queryString = nextParams.toString();
   return queryString ? `/foods/${foodId}?${queryString}` : `/foods/${foodId}`;
@@ -27,10 +42,7 @@ function buildCreateMealPath(query, searchParams) {
 
   if (query.trim()) nextParams.set("q", query.trim());
 
-  for (const key of ["mealType", "date", "mealLogId"]) {
-    const value = searchParams.get(key);
-    if (value) nextParams.set(key, value);
-  }
+  appendMealTargetParams(nextParams, searchParams);
 
   const queryString = nextParams.toString();
   return queryString ? `/create-meal?${queryString}` : "/create-meal";

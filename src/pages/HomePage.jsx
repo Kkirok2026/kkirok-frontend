@@ -193,7 +193,10 @@ function WarningBox({ warnings = [] }) {
 function DonutChart({ data }) {
   const hasData = Boolean(data);
 
-  const totalKcal = data?.totalKcal ?? "";
+  const totalKcal = Number(data?.totalKcal ?? 0);
+  const recommendedKcal = Number(data?.recommendedTargets?.caloriesKcal ?? 0);
+  const hasRecommendedKcal =
+  Number.isFinite(recommendedKcal) && recommendedKcal > 0;
   const protein = Number(data?.macros?.protein ?? 0);
   const fat = Number(data?.macros?.fat ?? 0);
   const carbs = Number(data?.macros?.carbs ?? 0);
@@ -298,11 +301,17 @@ function DonutChart({ data }) {
             background: gradient,
           }}
         >
-          <div className="absolute left-1/2 top-1/2 w-[108px] h-[108px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white flex items-center justify-center">
-            <span className="text-[24px] font-extrabold text-[#6da60f] tracking-[-0.04em]">
-              {hasMacroData ? `${totalKcal} kal` : ""}
-            </span>
-          </div>
+          <div className="absolute left-1/2 top-1/2 w-[108px] h-[108px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white flex flex-col items-center justify-center">
+  <span className="text-[24px] font-extrabold text-[#6da60f] tracking-[-0.04em]">
+    {hasData ? `${Math.round(totalKcal)} kcal` : ""}
+  </span>
+
+  {hasRecommendedKcal && (
+    <span className="mt-[2px] text-[10px] font-semibold text-[#8a8a8a] tracking-[-0.04em]">
+      권장 칼로리 : {Math.round(recommendedKcal)}kcal
+    </span>
+  )}
+</div>
         </div>
 
         {hasMacroData &&
@@ -433,12 +442,15 @@ function MealRecords({ dailyData, selectedDateKey }) {
             const searchParams = new URLSearchParams({
               mealType: meal.mealType || MEAL_KEY_TO_TYPE[mealKey],
               date: recordDate,
+              source: "meal-add",
             });
-        
+            
             navigate(`/search?${searchParams.toString()}`, {
               state: {
                 mealKey,
                 meal,
+                date: recordDate,
+                source: "meal-add",
               },
             });
           }}

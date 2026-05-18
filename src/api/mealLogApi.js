@@ -24,10 +24,11 @@ export function addFoodItems(mealLogId, items) {
   });
 }
 
-export function addMenuOption({ menuOptionId, memo }) {
+export function addMenuOption({ menuOptionId, memo, itemName }) {
   return apiClient.post("/meal-logs/from-menu-option", {
     menuOptionId,
     memo: memo || null,
+    itemName: itemName || null,
   });
 }
 

@@ -18,7 +18,7 @@ import {
 import {
   MEAL_TYPE_TO_KEY,
   formatDateKey,
-  toMealDisplay,
+  toMealsByType,
   toRounded,
 } from "../utils/mealData";
 
@@ -73,8 +73,34 @@ const NUTRIENT_META = [
   },
 ];
 
+const MEAL_OPTIONS = [
+  { mealType: "BREAKFAST", mealKey: "breakfast", label: "아침" },
+  { mealType: "LUNCH", mealKey: "lunch", label: "점심" },
+  { mealType: "DINNER", mealKey: "dinner", label: "저녁" },
+  { mealType: "SNACK", mealKey: "snack", label: "간식" },
+];
+
+function getMealLogItems(mealLogList) {
+  if (Array.isArray(mealLogList)) return mealLogList;
+  return mealLogList?.items || [];
+}
+
+async function findExistingMealLog({ date, mealType }) {
+  const list = await getMealLogsByDate(date);
+  const items = getMealLogItems(list);
+  const matches = items.filter((mealLog) => mealLog.mealType === mealType);
+
+  return matches[matches.length - 1] || null;
+}
+
 async function ensureMealLog({ mealLogId, date, mealType }) {
   if (mealLogId) return Number(mealLogId);
+
+  const existing = await findExistingMealLog({ date, mealType });
+
+  if (existing?.mealLogId) {
+    return existing.mealLogId;
+  }
 
   try {
     const created = await createMealLog({
@@ -85,15 +111,13 @@ async function ensureMealLog({ mealLogId, date, mealType }) {
 
     return created.mealLogId;
   } catch (error) {
-    if (error.code !== "MEAL_LOG_ALREADY_EXISTS") throw error;
+    const retryExisting = await findExistingMealLog({ date, mealType });
 
-    const list = await getMealLogsByDate(date);
-    const existing = (list?.items ?? []).find(
-      (mealLog) => mealLog.mealType === mealType
-    );
+    if (retryExisting?.mealLogId) {
+      return retryExisting.mealLogId;
+    }
 
-    if (!existing?.mealLogId) throw error;
-    return existing.mealLogId;
+    throw error;
   }
 }
 
@@ -165,6 +189,113 @@ function NutrientIconCard({ icon, label, value }) {
   );
 }
 
+function MealSelectModal({
+  selectedMealType,
+  onSelectMealType,
+  onClose,
+  onConfirm,
+  isAdding,
+}) {
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#1f1f1f]">
+      <div className="flex h-dvh w-full max-w-[430px] items-center justify-center">
+        <div
+          className="rounded-[10px] bg-white"
+          style={{
+            width: "280px",
+            minHeight: "190px",
+            padding: "28px 26px 24px",
+          }}
+        >
+          <div className="flex items-start">
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="닫기"
+              className="flex h-[24px] w-[24px] shrink-0 items-center justify-center text-[#272932]"
+              style={{
+                fontSize: "22px",
+                lineHeight: "1",
+                fontWeight: 300,
+              }}
+            >
+              ×
+            </button>
+
+            <div className="flex-1 pr-[24px] text-center">
+              <p
+                className="text-[#272932] tracking-[-0.03em]"
+                style={{
+                  fontSize: "16px",
+                  lineHeight: "1.1",
+                  fontWeight: 700,
+                }}
+              >
+                언제 먹었나요?
+              </p>
+
+              <p
+                className="mt-[6px] text-[#8a8c90] tracking-[-0.03em]"
+                style={{
+                  fontSize: "12px",
+                  lineHeight: "1",
+                  fontWeight: 500,
+                }}
+              >
+                입력된 시간대가 없어요
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-[34px] flex items-center justify-between gap-[6px]">
+            {MEAL_OPTIONS.map((option) => {
+              const isSelected = selectedMealType === option.mealType;
+
+              return (
+                <button
+                  key={option.mealType}
+                  type="button"
+                  onClick={() => onSelectMealType(option.mealType)}
+                  className="flex items-center justify-center rounded-full tracking-[-0.03em]"
+                  style={{
+                    width: "50px",
+                    height: "22px",
+                    border: isSelected
+                      ? "1px solid #9fc744"
+                      : "1px solid #cfc6c6",
+                    backgroundColor: isSelected ? "#c9ee58" : "#ffffff",
+                    color: "#272932",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                  }}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isAdding}
+            className="mt-[22px] flex w-full items-center justify-center rounded-[7px] text-white tracking-[-0.02em] disabled:opacity-50"
+            style={{
+              height: "40px",
+              backgroundColor: "#272932",
+              color: "#ffffff",
+              fontSize: "13px",
+              fontWeight: 700,
+            }}
+          >
+            {isAdding ? "추가 중..." : "선택"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function FoodDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -176,14 +307,19 @@ export default function FoodDetailPage() {
     ? decodeURIComponent(params.foodName)
     : "";
 
+  const queryMealType = searchParams.get("mealType");
+  const queryMealLogId = searchParams.get("mealLogId");
+  const date = searchParams.get("date") || formatDateKey(new Date());
+  const isMealAddFlow = searchParams.get("source") === "meal-add";
+
   const [food, setFood] = useState(location.state?.food ?? null);
   const [isLoading, setIsLoading] = useState(Boolean(foodId));
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState("");
-
-  const date = searchParams.get("date") || formatDateKey(new Date());
-  const mealType = searchParams.get("mealType") || "LUNCH";
-  const mealLogId = searchParams.get("mealLogId");
+  const [isMealModalOpen, setIsMealModalOpen] = useState(false);
+  const [selectedMealType, setSelectedMealType] = useState(
+    queryMealType || "DINNER"
+  );
 
   const numericFoodId = Number(foodId);
   const hasValidFoodId =
@@ -191,6 +327,13 @@ export default function FoodDetailPage() {
     foodId !== null &&
     foodId !== "" &&
     Number.isFinite(numericFoodId);
+
+  const isOpenedFromMealDetail =
+    searchParams.get("source") === "meal-detail" ||
+    Boolean(location.state?.fromMealDetail || location.state?.meal);
+
+    const hasFixedMealTarget = isMealAddFlow && Boolean(queryMealType);
+  const shouldShowAddButton = !isOpenedFromMealDetail;
 
   useEffect(() => {
     let ignore = false;
@@ -264,7 +407,7 @@ export default function FoodDetailPage() {
     ]);
   }, [flatFoodData]);
 
-  const handleAddFood = async () => {
+  const addFoodToMeal = async (targetMealType) => {
     if (!hasValidFoodId || isAdding) return;
 
     setIsAdding(true);
@@ -272,17 +415,23 @@ export default function FoodDetailPage() {
 
     try {
       const targetMealLogId = await ensureMealLog({
-        mealLogId,
+        mealLogId:
+          hasFixedMealTarget && queryMealType === targetMealType
+            ? queryMealLogId
+            : null,
         date,
-        mealType,
+        mealType: targetMealType,
       });
 
-      const updatedMeal = await addFoodItems(targetMealLogId, [
-        { foodId: numericFoodId },
-      ]);
+      await addFoodItems(targetMealLogId, [{ foodId: numericFoodId }]);
 
-      const meal = toMealDisplay(updatedMeal);
-      const mealKey = meal.mealKey || MEAL_TYPE_TO_KEY[mealType] || "lunch";
+      const refreshedMealLogs = await getMealLogsByDate(date);
+      const meals = toMealsByType(refreshedMealLogs);
+
+      const mealKey = MEAL_TYPE_TO_KEY[targetMealType] || "lunch";
+      const meal = meals[mealKey];
+
+      setIsMealModalOpen(false);
 
       navigate(`/meal-details/${mealKey}`, {
         state: {
@@ -302,21 +451,57 @@ export default function FoodDetailPage() {
     }
   };
 
+  const handleAddFood = () => {
+    if (!hasValidFoodId || isAdding) return;
+
+    if (hasFixedMealTarget) {
+      addFoodToMeal(queryMealType);
+      return;
+    }
+
+    setSelectedMealType("DINNER");
+    setIsMealModalOpen(true);
+  };
+
+  const handleConfirmMealType = () => {
+    addFoodToMeal(selectedMealType);
+  };
+
   return (
     <MobileLayout>
       <div className="absolute inset-0 bg-white">
-        <header className="absolute left-0 right-0 top-[58px] flex flex-col items-center">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            aria-label="이전 페이지로 이동"
-            className="absolute left-[58px] top-[0px] flex h-[28px] w-[28px] items-center justify-center rounded-[7px] bg-[#f8f8f8] text-[#272932] transition active:scale-[0.96]"
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          aria-label="이전 페이지로 이동"
+          className="absolute z-30 flex items-center justify-center transition active:scale-[0.96]"
+          style={{
+            left: "24px",
+            top: "54px",
+            width: "34px",
+            height: "34px",
+            padding: 0,
+            borderRadius: "9px",
+            backgroundColor: "#f4f4f4",
+            border: "1px solid #eeeeee",
+            boxShadow: "0 1px 4px rgba(0, 0, 0, 0.04)",
+            color: "#272932",
+          }}
+        >
+          <span
+            style={{
+              display: "block",
+              fontSize: "24px",
+              lineHeight: "1",
+              fontWeight: 300,
+              transform: "translateY(-2px)",
+            }}
           >
-            <span className="translate-y-[-1px] text-[20px] font-light leading-none">
-              ‹
-            </span>
-          </button>
+            ‹
+          </span>
+        </button>
 
+        <header className="absolute left-0 right-0 top-[58px] flex flex-col items-center">
           <p className="text-[15px] font-normal leading-none text-[#272932] tracking-[-0.02em]">
             Meal details
           </p>
@@ -366,16 +551,44 @@ export default function FoodDetailPage() {
           )}
         </main>
 
-        <div className="absolute bottom-[120px] left-1/2 z-30 w-[260px] -translate-x-1/2">
-          <button
-            type="button"
-            disabled={!food || isAdding || !hasValidFoodId}
-            onClick={handleAddFood}
-            className="h-[56px] w-full rounded-[10px] bg-black text-[15px] font-bold text-white tracking-[-0.02em] shadow-[0_16px_24px_rgba(0,0,0,0.22)] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
+        {shouldShowAddButton && (
+          <div
+            className="absolute left-1/2 z-30 -translate-x-1/2"
+            style={{
+              bottom: "74px",
+              width: "300px",
+            }}
           >
-            {isAdding ? "추가 중..." : "식단에 추가"}
-          </button>
-        </div>
+            <button
+              type="button"
+              disabled={!food || isAdding || !hasValidFoodId}
+              onClick={handleAddFood}
+              className="flex w-full items-center justify-center transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
+              style={{
+                height: "50px",
+                borderRadius: "10px",
+                backgroundColor: "#000000",
+                color: "#ffffff",
+                fontSize: "14px",
+                fontWeight: 700,
+                letterSpacing: "-0.02em",
+                boxShadow: "0 18px 24px rgba(0, 0, 0, 0.25)",
+              }}
+            >
+              {isAdding ? "추가 중..." : "식단에 추가"}
+            </button>
+          </div>
+        )}
+
+        {isMealModalOpen && (
+          <MealSelectModal
+            selectedMealType={selectedMealType}
+            onSelectMealType={setSelectedMealType}
+            onClose={() => setIsMealModalOpen(false)}
+            onConfirm={handleConfirmMealType}
+            isAdding={isAdding}
+          />
+        )}
       </div>
     </MobileLayout>
   );
