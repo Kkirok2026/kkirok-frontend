@@ -14,25 +14,100 @@ import {
   MEAL_TYPE_TO_KEY,
   formatDateKey,
   toMealDisplay,
+  toMealsByType,
 } from "../utils/mealData";
 
+import CarbsIcon from "../assets/icons/Carbs.png";
+import ProteinIcon from "../assets/icons/Protein.png";
+import FatIcon from "../assets/icons/Fat.png";
+import SodiumIcon from "../assets/icons/Sodium.png";
+
 const INPUT_TEXT_STYLE = {
-  fontSize: "12.5px",
-  lineHeight: "15px",
+  fontSize: "11.5px",
+  lineHeight: "14px",
   fontWeight: 300,
 };
 
+const MEAL_OPTIONS = [
+  { mealType: "BREAKFAST", mealKey: "breakfast", label: "아침" },
+  { mealType: "LUNCH", mealKey: "lunch", label: "점심" },
+  { mealType: "DINNER", mealKey: "dinner", label: "저녁" },
+  { mealType: "SNACK", mealKey: "snack", label: "간식" },
+];
+
+const PREVIEW_META = {
+  carbG: {
+    label: "탄수화물",
+    unit: "g",
+    icon: CarbsIcon,
+  },
+  proteinG: {
+    label: "단백질",
+    unit: "g",
+    icon: ProteinIcon,
+  },
+  fatG: {
+    label: "지방",
+    unit: "g",
+    icon: FatIcon,
+  },
+  amountG: {
+    label: "1회 제공량/1인분",
+    unit: "g",
+    icon: SodiumIcon,
+  },
+};
+
 function cleanDecimal(value) {
-  return `${value ?? ""}`.replace(/[^\d.]/g, "");
+  const onlyNumber = `${value ?? ""}`.replace(/[^\d.]/g, "");
+  const [head, ...tail] = onlyNumber.split(".");
+
+  if (tail.length === 0) return head;
+  return `${head}.${tail.join("")}`;
 }
 
-function formNumber(value, fallback = null) {
+function toNumber(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
 }
 
+function toOptionalNumber(value) {
+  if (`${value ?? ""}`.trim() === "") return null;
+
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function formatNumber(value) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) return "";
+  if (Number.isInteger(number)) return `${number}`;
+
+  return `${Math.round(number * 10) / 10}`;
+}
+
+function getMealLogItems(mealLogList) {
+  if (Array.isArray(mealLogList)) return mealLogList;
+  return mealLogList?.items || [];
+}
+
+async function findExistingMealLog({ date, mealType }) {
+  const list = await getMealLogsByDate(date);
+  const items = getMealLogItems(list);
+  const matches = items.filter((mealLog) => mealLog.mealType === mealType);
+
+  return matches[matches.length - 1] || null;
+}
+
 async function ensureMealLog({ mealLogId, date, mealType }) {
   if (mealLogId) return Number(mealLogId);
+
+  const existing = await findExistingMealLog({ date, mealType });
+
+  if (existing?.mealLogId) {
+    return existing.mealLogId;
+  }
 
   try {
     const created = await createMealLog({
@@ -43,25 +118,17 @@ async function ensureMealLog({ mealLogId, date, mealType }) {
 
     return created.mealLogId;
   } catch (error) {
-    if (error.code !== "MEAL_LOG_ALREADY_EXISTS") throw error;
+    const retryExisting = await findExistingMealLog({ date, mealType });
 
-    const list = await getMealLogsByDate(date);
-    const existing = (list?.items ?? []).find(
-      (mealLog) => mealLog.mealType === mealType
-    );
+    if (retryExisting?.mealLogId) {
+      return retryExisting.mealLogId;
+    }
 
-    if (!existing?.mealLogId) throw error;
-    return existing.mealLogId;
+    throw error;
   }
 }
 
-function MealInput({
-  placeholder,
-  value,
-  onChange,
-  inputMode = "decimal",
-  bordered = false,
-}) {
+function MealInput({ placeholder, value, onChange, inputMode = "decimal" }) {
   return (
     <input
       type="text"
@@ -80,6 +147,150 @@ function MealInput({
   );
 }
 
+function ReadOnlyMealInput({ value, placeholder }) {
+  return (
+    <div
+      style={INPUT_TEXT_STYLE}
+      className={[
+        "flex h-[42px] w-full items-center rounded-[10px] px-[36px]",
+        "border border-transparent bg-[#f8f8f8]",
+        value ? "text-[#272932]" : "text-[#a9a9a9]",
+      ].join(" ")}
+    >
+      {value || placeholder}
+    </div>
+  );
+}
+
+function PreviewCard({ item }) {
+  return (
+    <div className="w-[68px]">
+      <div className="flex h-[68px] items-center justify-center rounded-[9px] bg-[#f8f8f8]">
+        <img
+          src={item.icon}
+          alt={item.label}
+          className="max-h-[48px] max-w-[48px] object-contain"
+        />
+      </div>
+
+      <p className="mt-[8px] text-[11px] font-bold leading-none text-[#272932] tracking-[-0.02em]">
+        {item.label}
+      </p>
+
+      <p className="mt-[7px] text-[10px] font-light leading-none text-[#6f7075] tracking-[-0.02em]">
+        {item.value}
+      </p>
+    </div>
+  );
+}
+
+function MealSelectModal({
+  selectedMealType,
+  onSelectMealType,
+  onClose,
+  onConfirm,
+  isAdding,
+}) {
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#1f1f1f]">
+      <div className="flex h-dvh w-full max-w-[430px] items-center justify-center">
+        <div
+          className="rounded-[10px] bg-white"
+          style={{
+            width: "280px",
+            minHeight: "190px",
+            padding: "28px 26px 24px",
+          }}
+        >
+          <div className="flex items-start">
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="닫기"
+              className="flex h-[24px] w-[24px] shrink-0 items-center justify-center text-[#272932]"
+              style={{
+                fontSize: "22px",
+                lineHeight: "1",
+                fontWeight: 300,
+              }}
+            >
+              ×
+            </button>
+
+            <div className="flex-1 pr-[24px] text-center">
+              <p
+                className="text-[#272932] tracking-[-0.03em]"
+                style={{
+                  fontSize: "16px",
+                  lineHeight: "1.1",
+                  fontWeight: 700,
+                }}
+              >
+                언제 먹었나요?
+              </p>
+
+              <p
+                className="mt-[6px] text-[#8a8c90] tracking-[-0.03em]"
+                style={{
+                  fontSize: "12px",
+                  lineHeight: "1",
+                  fontWeight: 500,
+                }}
+              >
+                입력된 시간대가 없어요
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-[34px] flex items-center justify-between gap-[6px]">
+            {MEAL_OPTIONS.map((option) => {
+              const isSelected = selectedMealType === option.mealType;
+
+              return (
+                <button
+                  key={option.mealType}
+                  type="button"
+                  onClick={() => onSelectMealType(option.mealType)}
+                  className="flex items-center justify-center rounded-full tracking-[-0.03em]"
+                  style={{
+                    width: "50px",
+                    height: "22px",
+                    border: isSelected
+                      ? "1px solid #9fc744"
+                      : "1px solid #cfc6c6",
+                    backgroundColor: isSelected ? "#c9ee58" : "#ffffff",
+                    color: "#272932",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                  }}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isAdding}
+            className="mt-[22px] flex w-full items-center justify-center rounded-[7px] text-white tracking-[-0.02em] disabled:opacity-50"
+            style={{
+              height: "40px",
+              backgroundColor: "#272932",
+              color: "#ffffff",
+              fontSize: "13px",
+              fontWeight: 700,
+            }}
+          >
+            {isAdding ? "추가 중..." : "선택"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function CreateMealPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -89,56 +300,91 @@ export default function CreateMealPage() {
     location.state?.query ||
     searchParams.get("q") ||
     searchParams.get("foodName") ||
-    "";
+    "직접 입력 메뉴";
 
-  const [foodName, setFoodName] = useState(initialName);
-  const [caloriesKcal, setCaloriesKcal] = useState("");
+  const date = searchParams.get("date") || formatDateKey(new Date());
+  const queryMealType = searchParams.get("mealType");
+  const queryMealLogId = searchParams.get("mealLogId");
+  const hasFixedMealTarget =
+    searchParams.get("source") === "meal-add" && Boolean(queryMealType);
+
+  const [step, setStep] = useState("form");
   const [carbG, setCarbG] = useState("");
   const [proteinG, setProteinG] = useState("");
   const [fatG, setFatG] = useState("");
-  const [cholesterolMg, setCholesterolMg] = useState("");
-  const [sugarG, setSugarG] = useState("");
-  const [sodiumMg, setSodiumMg] = useState("");
+  const [amountG, setAmountG] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isMealModalOpen, setIsMealModalOpen] = useState(false);
+  const [selectedMealType, setSelectedMealType] = useState(
+    queryMealType || "DINNER"
+  );
 
-  const date = searchParams.get("date") || formatDateKey(new Date());
-  const mealType = searchParams.get("mealType") || "LUNCH";
-  const mealLogId = searchParams.get("mealLogId");
+  const isCarbEntered = carbG.trim().length > 0;
+  const isProteinEntered = proteinG.trim().length > 0;
+  const isFatEntered = fatG.trim().length > 0;
+  const canCalculateCalories = isCarbEntered && isProteinEntered && isFatEntered;
 
-  const canSubmit = useMemo(() => {
-    return (
-      foodName.trim().length > 0 &&
-      caloriesKcal.trim().length > 0 &&
-      carbG.trim().length > 0 &&
-      proteinG.trim().length > 0 &&
-      fatG.trim().length > 0
+  const calculatedCalories = useMemo(() => {
+    if (!canCalculateCalories) return null;
+
+    return Math.round(
+      toNumber(carbG) * 4 + toNumber(proteinG) * 4 + toNumber(fatG) * 9
     );
-  }, [caloriesKcal, carbG, fatG, foodName, proteinG]);
+  }, [canCalculateCalories, carbG, fatG, proteinG]);
 
-  const handleSubmit = async () => {
-    if (!canSubmit || isSubmitting) {
-        setError("메뉴명, 칼로리, 탄수화물, 단백질, 지방은 꼭 입력해주세요.");
-      return;
+  const previewItems = useMemo(() => {
+    const items = [];
+  
+    if (isCarbEntered) {
+      items.push({
+        ...PREVIEW_META.carbG,
+        key: "carbG",
+        value: `${formatNumber(carbG)}g`,
+      });
     }
+  
+    if (isProteinEntered) {
+      items.push({
+        ...PREVIEW_META.proteinG,
+        key: "proteinG",
+        value: `${formatNumber(proteinG)}g`,
+      });
+    }
+  
+    if (isFatEntered) {
+      items.push({
+        ...PREVIEW_META.fatG,
+        key: "fatG",
+        value: `${formatNumber(fatG)}g`,
+      });
+    }
+  
+    return items;
+  }, [
+    carbG,
+    fatG,
+    isCarbEntered,
+    isFatEntered,
+    isProteinEntered,
+    proteinG,
+  ]);
+
+  const createAndAddFood = async (targetMealType) => {
+    if (isSubmitting) return;
 
     setIsSubmitting(true);
     setError("");
 
     try {
+      const servingAmount = toOptionalNumber(amountG);
       const food = await createCustomFood({
-        foodName: foodName.trim(),
-        amountG: 100,
-        caloriesKcal: Math.round(
-          formNumber(carbG, 0) * 4 +
-            formNumber(proteinG, 0) * 4 +
-            formNumber(fatG, 0) * 9
-        ),
-        carbG: formNumber(carbG, 0),
-        proteinG: formNumber(proteinG, 0),
-        fatG: formNumber(fatG, 0),
-        sugarG: sugarG.trim() ? formNumber(sugarG, 0) : null,
-        sodiumMg: sodiumMg.trim() ? formNumber(sodiumMg, 0) : null,
+        foodName: initialName.trim() || "직접 입력 메뉴",
+        amountG: servingAmount ?? undefined,
+        caloriesKcal: calculatedCalories ?? undefined,
+        carbG: toNumber(carbG, 0),
+        proteinG: toNumber(proteinG, 0),
+        fatG: toNumber(fatG, 0),
       });
 
       const foodId = food?.foodId;
@@ -147,15 +393,28 @@ export default function CreateMealPage() {
         throw new Error("직접 입력한 음식 ID를 확인하지 못했습니다.");
       }
 
-      if (!searchParams.get("mealType")) {
-        navigate(`/foods/${foodId}`, { replace: true, state: { food } });
-        return;
-      }
+      const targetMealLogId = await ensureMealLog({
+        mealLogId:
+          hasFixedMealTarget && queryMealType === targetMealType
+            ? queryMealLogId
+            : null,
+        date,
+        mealType: targetMealType,
+      });
 
-      const targetMealLogId = await ensureMealLog({ mealLogId, date, mealType });
-      const updatedMeal = await addFoodItems(targetMealLogId, [{ foodId }]);
-      const meal = toMealDisplay(updatedMeal);
-      const mealKey = meal.mealKey || MEAL_TYPE_TO_KEY[mealType] || "lunch";
+      await addFoodItems(targetMealLogId, [
+        {
+          foodId,
+          amountG: servingAmount ?? undefined,
+        },
+      ]);
+
+      const refreshedMealLogs = await getMealLogsByDate(date);
+      const meals = toMealsByType(refreshedMealLogs);
+      const mealKey = MEAL_TYPE_TO_KEY[targetMealType] || "lunch";
+      const meal = meals[mealKey] || toMealDisplay(refreshedMealLogs);
+
+      setIsMealModalOpen(false);
 
       navigate(`/meal-details/${mealKey}`, {
         replace: true,
@@ -173,109 +432,166 @@ export default function CreateMealPage() {
     }
   };
 
+  const handleNext = () => {
+    setError("");
+    setStep("detail");
+  };
+
+  const handleAddButton = () => {
+    if (hasFixedMealTarget) {
+      createAndAddFood(queryMealType);
+      return;
+    }
+
+    setSelectedMealType("DINNER");
+    setIsMealModalOpen(true);
+  };
+
+  const handleConfirmMealType = () => {
+    createAndAddFood(selectedMealType);
+  };
+
+  const handleBack = () => {
+    if (step === "detail") {
+      setStep("form");
+      setError("");
+      return;
+    }
+
+    navigate(-1);
+  };
+
   return (
     <MobileLayout>
       <header className="absolute left-0 right-0 top-[66px] flex flex-col items-center">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="absolute left-[50px] top-[0px] h-[28px] rounded-[7px] bg-transparent text-[11px] font-light text-[#272932] flex items-center gap-[7px]"
-        >
-          <span className="flex h-[24px] w-[24px] items-center justify-center rounded-[7px] bg-[#f8f8f8] text-[18px] leading-none">
-            ‹
-          </span>
-          취소
-        </button>
+      <button
+  type="button"
+  onClick={handleBack}
+  className="absolute left-[50px] top-[0px] flex h-[28px] items-center gap-[7px] rounded-[7px] bg-transparent text-[11px] font-light text-[#272932]"
+>
+  <span className="flex h-[24px] w-[24px] items-center justify-center rounded-[7px] bg-[#f8f8f8] text-[18px] leading-none">
+    ‹
+  </span>
+  {step === "form" ? "취소" : ""}
+</button>
 
         <p className="text-[15px] leading-[18px] font-normal text-[#272932] tracking-[-0.02em]">
-          Create Meal
+          {step === "form" ? "Create Meal" : "Meal details"}
         </p>
 
         <KkirokLogo className="mt-[2px]" />
       </header>
 
-      <main className="absolute left-[50px] right-[50px] top-[190px]">
-      <MealInput
-  placeholder="메뉴 명"
-  value={foodName}
-  onChange={(value) => {
-    setFoodName(value);
-    setError("");
-  }}
-  inputMode="text"
-/>
+      {step === "form" ? (
+        <main className="absolute left-[50px] right-[50px] top-[190px]">
+          <div className="mb-[20px] rounded-[10px] bg-[#f8f8f8] px-[36px] py-[13px] text-[12.5px] font-light leading-[15px] text-[#272932]">
+            {initialName}
+          </div>
 
-        <div className="mt-[20px] space-y-[18px]">
-          <MealInput
-            placeholder="탄수화물 (g)"
-            value={carbG}
-            onChange={(value) => {
-              setCarbG(cleanDecimal(value));
-              setError("");
-            }}
-          />
+          <div className="space-y-[18px]">
+            <MealInput
+              placeholder="탄수화물 (g)"
+              value={carbG}
+              onChange={(value) => {
+                setCarbG(cleanDecimal(value));
+                setError("");
+              }}
+            />
 
-          <MealInput
-            placeholder="단백질 (g)"
-            value={proteinG}
-            onChange={(value) => {
-              setProteinG(cleanDecimal(value));
-              setError("");
-            }}
-          />
+            <MealInput
+              placeholder="단백질 (g)"
+              value={proteinG}
+              onChange={(value) => {
+                setProteinG(cleanDecimal(value));
+                setError("");
+              }}
+            />
 
-          <MealInput
-            placeholder="나트륨 (mg)"
-            value={sodiumMg}
-            onChange={(value) => {
-              setSodiumMg(cleanDecimal(value));
-              setError("");
-            }}
-          />
+            <MealInput
+              placeholder="지방 (g)"
+              value={fatG}
+              onChange={(value) => {
+                setFatG(cleanDecimal(value));
+                setError("");
+              }}
+            />
 
-          <MealInput
-            placeholder="지방 (g)"
-            value={fatG}
-            onChange={(value) => {
-              setFatG(cleanDecimal(value));
-              setError("");
-            }}
-          />
+            <ReadOnlyMealInput
+              value={
+                calculatedCalories !== null ? `${calculatedCalories} kcal` : ""
+              }
+              placeholder="칼로리 (kcal) - 탄·단·지가 입력되면 자동 계산됩니다"
+            />
 
-          <MealInput
-            placeholder="콜레스테롤 (g)"
-            value={cholesterolMg}
-            onChange={(value) => {
-              setCholesterolMg(cleanDecimal(value));
-              setError("");
-            }}
-          />
+            <MealInput
+              placeholder="1회 제공량/1인분 (g)"
+              value={amountG}
+              onChange={(value) => {
+                setAmountG(cleanDecimal(value));
+                setError("");
+              }}
+            />
+          </div>
 
-          <MealInput
-            placeholder="당 (g)"
-            value={sugarG}
-            onChange={(value) => {
-              setSugarG(cleanDecimal(value));
-              setError("");
-            }}
-          />
-        </div>
+          {error && (
+            <p className="mt-[12px] text-center text-[11px] font-light text-[#ff5b5b]">
+              {error}
+            </p>
+          )}
+        </main>
+      ) : (
+        <main className="absolute left-[58px] right-[58px] top-[166px]">
+          <h1
+            className="text-[22px] leading-[1.25] text-[#272932] tracking-[-0.05em]"
+            style={{ fontWeight: 650 }}
+          >
+            ‘{initialName}’ 메뉴 추가 완료
+          </h1>
 
-        {error && (
-          <p className="mt-[12px] text-center text-[11px] font-light text-[#ff5b5b]">
-            {error}
-          </p>
-        )}
-      </main>
+          {calculatedCalories !== null && (
+            <p className="mt-[24px] text-[14px] font-bold leading-none text-[#272932] tracking-[-0.03em]">
+              {calculatedCalories} kcal
+            </p>
+          )}
+
+          {previewItems.length > 0 ? (
+            <div className="mt-[30px] grid grid-cols-4 gap-x-[14px] gap-y-[34px]">
+              {previewItems.map((item) => (
+                <PreviewCard key={item.key} item={item} />
+              ))}
+            </div>
+          ) : (
+            <p className="mt-[30px] text-[12px] font-light text-[#8a8c90]">
+              입력한 영양 정보가 없습니다.
+            </p>
+          )}
+
+          {error && (
+            <p className="mt-[26px] text-[12px] font-light text-[#ff5b5b]">
+              {error}
+            </p>
+          )}
+        </main>
+      )}
 
       <BottomButton
-        onClick={handleSubmit}
+        onClick={step === "form" ? handleNext : handleAddButton}
         disabled={isSubmitting}
         bottomClassName="bottom-[70px]"
-        className="!h-[50px] !left-[50px] !right-[50px] !rounded-[10px] !text-[13px] !font-bold"
+        className="!left-[50px] !right-[50px] !h-[50px] !rounded-[10px] !text-[13px] !font-bold"
       >
-        {isSubmitting ? "추가 중..." : "다음"}
+        {step === "form" ? "다음" : isSubmitting ? "추가 중..." : "식단에 추가"}
       </BottomButton>
+
+      {isMealModalOpen && (
+        <MealSelectModal
+          selectedMealType={selectedMealType}
+          onSelectMealType={setSelectedMealType}
+          onClose={() => setIsMealModalOpen(false)}
+          onConfirm={handleConfirmMealType}
+          isAdding={isSubmitting}
+        />
+      )}
     </MobileLayout>
   );
 }
