@@ -110,15 +110,21 @@ function MenuCard({ item, selected, onSelect }) {
 
   return (
     <button
-      type="button"
-      onClick={() => onSelect(item)}
-      className="w-full min-h-[154px] rounded-[18px] border bg-white grid grid-cols-[116px_1fr] items-center gap-[10px] px-[28px] py-[26px] text-left transition"
-      style={{
-        border: `1.2px solid ${selected ? "#B87850" : COLORS.grayBorder}`,
-        boxShadow: "none",
-        cursor: "pointer",
-      }}
-    >
+  type="button"
+  onClick={() => onSelect(item)}
+  aria-pressed={selected}
+  className="w-full min-h-[154px] rounded-[18px] bg-white grid grid-cols-[116px_1fr] items-center gap-[10px] px-[28px] py-[26px] text-left transition-all duration-200"
+  style={{
+    border: selected
+      ? "2.2px solid #B87850"
+      : `1.2px solid ${COLORS.grayBorder}`,
+    boxShadow: selected
+      ? "0 14px 28px rgba(184, 120, 80, 0.18)"
+      : "none",
+    transform: selected ? "translateY(-1px)" : "translateY(0)",
+    cursor: "pointer",
+  }}
+>
       <div>
         <p
           className="text-[22px] font-extrabold leading-none tracking-[-0.03em]"
