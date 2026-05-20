@@ -483,7 +483,7 @@ export default function MealDetailPage() {
         <KkirokLogo className="mt-[5px]" />
       </header>
 
-      <main className="absolute left-[58px] right-[58px] top-[166px]">
+      <main className="absolute left-[58px] right-[58px] top-[166px] bottom-0 overflow-y-auto pb-[72px] ">
         <h1
           className="text-[28px] text-[#272932] tracking-[-0.05em]"
           style={{
