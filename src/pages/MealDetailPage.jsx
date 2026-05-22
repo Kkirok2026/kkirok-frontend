@@ -9,6 +9,7 @@ import {
   MEAL_LABELS as API_MEAL_LABELS,
   formatDateKey,
   toMealDisplay,
+  toRounded,
 } from "../utils/mealData";
 
 import ArrowIcon from "../assets/icons/Icon-Arrow.svg";
