@@ -256,7 +256,7 @@ export default function FoodSearchPage() {
       } finally {
         if (!ignore) setIsLoading(false);
       }
-    }, 250);
+    }, 100);
 
     return () => {
       ignore = true;

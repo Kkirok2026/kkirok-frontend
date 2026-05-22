@@ -115,8 +115,24 @@ function MenuCard({ item, selected, onSelect }) {
       className="w-full min-h-[154px] rounded-[18px] border bg-white grid grid-cols-[116px_1fr] items-center gap-[10px] px-[28px] py-[26px] text-left transition"
       style={{
         border: `1.2px solid ${selected ? "#B87850" : COLORS.grayBorder}`,
-        boxShadow: "none",
+        boxShadow: selected
+          ? "0 12px 24px rgba(184, 120, 80, 0.24)"
+          : "0 2px 8px rgba(39, 41, 50, 0.04)",
         cursor: "pointer",
+      }}
+      onMouseEnter={(event) => {
+        if (!selected) {
+          event.currentTarget.style.boxShadow =
+            "0 10px 20px rgba(39, 41, 50, 0.12)";
+          event.currentTarget.style.borderColor = "#c9b8aa";
+        }
+      }}
+      onMouseLeave={(event) => {
+        if (!selected) {
+          event.currentTarget.style.boxShadow =
+            "0 2px 8px rgba(39, 41, 50, 0.04)";
+          event.currentTarget.style.borderColor = COLORS.grayBorder;
+        }
       }}
     >
       <div>

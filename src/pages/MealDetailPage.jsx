@@ -9,6 +9,7 @@ import {
   MEAL_LABELS as API_MEAL_LABELS,
   formatDateKey,
   toMealDisplay,
+  toRounded,
 } from "../utils/mealData";
 
 import ArrowIcon from "../assets/icons/Icon-Arrow.svg";
@@ -121,9 +122,16 @@ function normalizeFoodItem(item, index) {
 function FoodRow({ item, onOpenDetail, onOpenDelete }) {
   return (
     <div className="flex h-[34px] items-center">
-      <span className="flex-1 text-left text-[17px] font-normal text-[#272932] tracking-[-0.03em]">
-        {item.itemName}
-      </span>
+      <div className="min-w-0 flex-1">
+        <span className="block truncate text-left text-[17px] font-normal text-[#272932] tracking-[-0.03em]">
+          {item.itemName}
+        </span>
+        {item.amountG && (
+          <span className="mt-[2px] block text-[10px] font-light leading-none text-[#8a8c90] tracking-[-0.02em]">
+            {toRounded(item.amountG)}g
+          </span>
+        )}
+      </div>
 
       <button
         type="button"
@@ -344,6 +352,10 @@ export default function MealDetailPage() {
       query.set("mealLogId", String(item.mealLogId || meal.mealLogId));
     }
 
+    if (item.mealLogItemId) {
+      query.set("mealLogItemId", String(item.mealLogItemId));
+    }
+
     query.set("source", "meal-detail");
 
     const queryString = query.toString();
@@ -373,6 +385,7 @@ export default function MealDetailPage() {
         meal,
         date: recordDate,
         fromMealDetail: true,
+        mealLogItemId: item.mealLogItemId,
       },
     });
   };
