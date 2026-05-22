@@ -348,12 +348,28 @@ export default function MealDetailPage() {
 
     const queryString = query.toString();
 
+    const fallbackFood = item.food || {
+      foodId: itemFoodId,
+      id: itemFoodId,
+      name: itemName,
+      foodName: itemName,
+      amountG: item.amountG,
+      defaultServingG: item.amountG,
+      sourceName: item.sourceName,
+      nutrients: item.nutrients || {
+        caloriesKcal: item.caloriesKcal,
+        carbG: item.carbG,
+        proteinG: item.proteinG,
+        fatG: item.fatG,
+        sugarG: item.sugarG,
+        sodiumMg: item.sodiumMg,
+        cholesterolMg: item.cholesterolMg,
+      },
+    };
+
     navigate(`${detailPath}${queryString ? `?${queryString}` : ""}`, {
       state: {
-        food: item.food || {
-          name: itemName,
-          foodName: itemName,
-        },
+        food: fallbackFood,
         meal,
         date: recordDate,
         fromMealDetail: true,
@@ -468,7 +484,7 @@ export default function MealDetailPage() {
         <KkirokLogo className="mt-[5px]" />
       </header>
 
-      <main className="absolute left-[24px] right-[24px] top-[166px]">
+      <main className="absolute left-[58px] right-[58px] top-[166px] bottom-0 overflow-y-auto pb-[72px] ">
         <h1
           className="text-[28px] text-[#272932] tracking-[-0.05em]"
           style={{

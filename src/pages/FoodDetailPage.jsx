@@ -359,6 +359,17 @@ export default function FoodDetailPage() {
         if (!ignore) setFood(response);
       } catch (loadError) {
         if (!ignore) {
+          const fallbackFood = location.state?.food;
+      
+          if (
+            fallbackFood &&
+            (loadError.code === "FOOD_NOT_FOUND" || loadError.status === 404)
+          ) {
+            setFood(fallbackFood);
+            setError("사용자가 추가한 메뉴입니다.");
+            return;
+          }
+      
           setError(loadError.message || "음식 상세를 불러오지 못했습니다.");
         }
       } finally {

@@ -114,8 +114,9 @@ function MenuCard({ item, selected, onSelect }) {
       onClick={() => onSelect(item)}
       className="w-full min-h-[154px] rounded-[18px] border bg-white grid grid-cols-[116px_1fr] items-center gap-[10px] px-[28px] py-[26px] text-left transition"
       style={{
-        border: `1.2px solid ${selected ? "#B87850" : "#B87850"}`,
+        border: `1.2px solid ${selected ? "#B87850" : COLORS.grayBorder}`,
         boxShadow: "none",
+        cursor: "pointer",
       }}
     >
       <div>
