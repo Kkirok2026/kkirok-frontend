@@ -14,6 +14,7 @@ import {
   addFoodItems,
   createMealLog,
   getMealLogsByDate,
+  updateMealLogItemAmount,
 } from "../api/mealLogApi";
 import {
   MEAL_TYPE_TO_KEY,
@@ -167,6 +168,36 @@ function formatNutrientValue(rawValue, unit) {
   return `0${unit}`;
 }
 
+function toOptionalPositiveNumber(value) {
+  if (`${value || ""}`.trim() === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : NaN;
+}
+
+function formatGramValue(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) return "-";
+  return `${toRounded(number)}g`;
+}
+
+function WeightInfoRow({ label, amount, calories }) {
+  return (
+    <div className="flex items-center justify-between rounded-[8px] bg-[#f8f8f8] px-[12px] py-[10px]">
+      <div>
+        <p className="text-[11px] font-bold leading-none text-[#272932] tracking-[-0.03em]">
+          {label}
+        </p>
+        <p className="mt-[5px] text-[10px] font-light leading-none text-[#8a8c90] tracking-[-0.02em]">
+          {formatGramValue(amount)}
+        </p>
+      </div>
+      <p className="text-[12px] font-bold leading-none text-[#69a80f] tracking-[-0.02em]">
+        {toRounded(calories)} kcal
+      </p>
+    </div>
+  );
+}
+
 function NutrientIconCard({ icon, label, value }) {
   return (
     <div className="w-[68px]">
@@ -309,6 +340,7 @@ export default function FoodDetailPage() {
 
   const queryMealType = searchParams.get("mealType");
   const queryMealLogId = searchParams.get("mealLogId");
+  const queryMealLogItemId = searchParams.get("mealLogItemId");
   const date = searchParams.get("date") || formatDateKey(new Date());
   const isMealAddFlow = searchParams.get("source") === "meal-add";
 
@@ -317,6 +349,10 @@ export default function FoodDetailPage() {
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState("");
   const [isMealModalOpen, setIsMealModalOpen] = useState(false);
+  const [amountG, setAmountG] = useState(
+    location.state?.food?.amountG ? String(location.state.food.amountG) : ""
+  );
+  const [amountMessage, setAmountMessage] = useState("");
   const [selectedMealType, setSelectedMealType] = useState(
     queryMealType || "DINNER"
   );
@@ -334,6 +370,7 @@ export default function FoodDetailPage() {
 
     const hasFixedMealTarget = isMealAddFlow && Boolean(queryMealType);
   const shouldShowAddButton = !isOpenedFromMealDetail;
+  const mealLogItemId = queryMealLogItemId || location.state?.mealLogItemId;
 
   useEffect(() => {
     let ignore = false;
@@ -356,7 +393,18 @@ export default function FoodDetailPage() {
 
       try {
         const response = await getFood(foodId);
-        if (!ignore) setFood(response);
+        if (!ignore) {
+          const fallbackFood = location.state?.food;
+          setFood(
+            isOpenedFromMealDetail && fallbackFood?.nutrients
+              ? {
+                  ...response,
+                  amountG: fallbackFood.amountG,
+                  nutrients: fallbackFood.nutrients,
+                }
+              : response
+          );
+        }
       } catch (loadError) {
         if (!ignore) {
           const fallbackFood = location.state?.food;
@@ -382,7 +430,7 @@ export default function FoodDetailPage() {
     return () => {
       ignore = true;
     };
-  }, [foodId, hasValidFoodId, location.state?.food, routeFoodName]);
+  }, [foodId, hasValidFoodId, isOpenedFromMealDetail, location.state?.food, routeFoodName]);
 
   const flatFoodData = useMemo(() => {
     const totals = food?.nutrients ?? {};
@@ -392,6 +440,9 @@ export default function FoodDetailPage() {
       ...totals,
     };
   }, [food]);
+
+  const basisNutrients = food?.nutritionBasisNutrients ?? food?.nutrients ?? {};
+  const totalWeightNutrients = food?.totalWeightNutrients ?? food?.nutrients ?? {};
 
   const nutrients = useMemo(() => {
     return NUTRIENT_META.map((item) => {
@@ -421,6 +472,12 @@ export default function FoodDetailPage() {
   const addFoodToMeal = async (targetMealType) => {
     if (!hasValidFoodId || isAdding) return;
 
+    const servingAmount = toOptionalPositiveNumber(amountG);
+    if (Number.isNaN(servingAmount)) {
+      setError("먹은 양은 0보다 큰 숫자로 입력해 주세요.");
+      return;
+    }
+
     setIsAdding(true);
     setError("");
 
@@ -434,7 +491,12 @@ export default function FoodDetailPage() {
         mealType: targetMealType,
       });
 
-      await addFoodItems(targetMealLogId, [{ foodId: numericFoodId }]);
+      await addFoodItems(targetMealLogId, [
+        {
+          foodId: numericFoodId,
+          amountG: servingAmount ?? undefined,
+        },
+      ]);
 
       const refreshedMealLogs = await getMealLogsByDate(date);
       const meals = toMealsByType(refreshedMealLogs);
@@ -476,6 +538,50 @@ export default function FoodDetailPage() {
 
   const handleConfirmMealType = () => {
     addFoodToMeal(selectedMealType);
+  };
+
+  const handleUpdateAmount = async () => {
+    if (!queryMealLogId || !mealLogItemId || isAdding) return;
+
+    const servingAmount = toOptionalPositiveNumber(amountG);
+    if (!servingAmount || Number.isNaN(servingAmount)) {
+      setError("먹은 양은 0보다 큰 숫자로 입력해 주세요.");
+      return;
+    }
+
+    setIsAdding(true);
+    setError("");
+    setAmountMessage("");
+
+    try {
+      const response = await updateMealLogItemAmount({
+        mealLogId: queryMealLogId,
+        mealLogItemId,
+        amountG: servingAmount,
+      });
+      const updatedItem = response?.items?.find(
+        (item) => String(item.mealLogItemId) === String(mealLogItemId)
+      );
+
+      if (updatedItem) {
+        setFood((prev) => ({
+          ...prev,
+          amountG: updatedItem.amountG,
+          nutrients: updatedItem.nutrients,
+          defaultServingG: updatedItem.amountG,
+        }));
+        setAmountG(String(updatedItem.amountG));
+      }
+      setAmountMessage("먹은 양을 수정했습니다.");
+    } catch (updateError) {
+      if (updateError.status === 401) {
+        navigate("/login", { replace: true });
+        return;
+      }
+      setError(updateError.message || "먹은 양을 수정하지 못했습니다.");
+    } finally {
+      setIsAdding(false);
+    }
   };
 
   return (
@@ -520,7 +626,7 @@ export default function FoodDetailPage() {
           <KkirokLogo className="mt-[5px]" />
         </header>
 
-        <main className="absolute left-[58px] right-[58px] top-[166px]">
+        <main className="absolute left-[58px] right-[58px] top-[166px] bottom-[142px] overflow-y-auto pb-[20px]">
           {isLoading && (
             <p className="text-[12px] font-light text-[#8a8c90]">
               음식 정보를 불러오는 중입니다.
@@ -547,6 +653,54 @@ export default function FoodDetailPage() {
               <p className="mt-[24px] text-[14px] font-bold leading-none text-[#272932] tracking-[-0.03em]">
                 {toRounded(calories)} kcal
               </p>
+
+              <div className="mt-[18px] space-y-[8px]">
+                <WeightInfoRow
+                  label="영양성분함량 기준량"
+                  amount={food?.nutritionBasisAmountG ?? food?.defaultServingG}
+                  calories={basisNutrients.caloriesKcal}
+                />
+                <WeightInfoRow
+                  label="총 식품 중량"
+                  amount={food?.totalWeightG ?? food?.defaultServingG}
+                  calories={totalWeightNutrients.caloriesKcal}
+                />
+              </div>
+
+              {(shouldShowAddButton || isOpenedFromMealDetail) && (
+                <div className="mt-[18px]">
+                  <label className="block text-[11px] font-bold text-[#272932] tracking-[-0.03em]">
+                    먹은 양
+                  </label>
+                  <div className="mt-[8px] flex items-center gap-[8px]">
+                    <input
+                      type="number"
+                      min="0"
+                      inputMode="decimal"
+                      value={amountG}
+                      onChange={(event) => {
+                        setAmountG(event.target.value);
+                        setAmountMessage("");
+                      }}
+                      placeholder={formatGramValue(food?.totalWeightG ?? food?.defaultServingG)}
+                      className="h-[38px] flex-1 rounded-[8px] border border-[#dedede] px-[12px] text-[13px] font-medium text-[#272932] outline-none focus:border-[#9bb314]"
+                    />
+                    <span className="text-[12px] font-bold text-[#6f7075]">
+                      g
+                    </span>
+                  </div>
+                  <p className="mt-[6px] text-[10px] font-light leading-[1.4] text-[#8a8c90]">
+                    {shouldShowAddButton
+                      ? "입력하지 않으면 총 식품 중량 기준으로 추가됩니다."
+                      : "수정하면 이 양만큼의 칼로리로 다시 계산됩니다."}
+                  </p>
+                  {amountMessage && (
+                    <p className="mt-[6px] text-[10px] font-light text-[#69a80f]">
+                      {amountMessage}
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="mt-[30px] grid grid-cols-4 gap-x-[14px] gap-y-[34px]">
                 {nutrients.map((item) => (
@@ -587,6 +741,35 @@ export default function FoodDetailPage() {
               }}
             >
               {isAdding ? "추가 중..." : "식단에 추가"}
+            </button>
+          </div>
+        )}
+
+        {isOpenedFromMealDetail && queryMealLogId && mealLogItemId && (
+          <div
+            className="absolute left-1/2 z-30 -translate-x-1/2"
+            style={{
+              bottom: "74px",
+              width: "300px",
+            }}
+          >
+            <button
+              type="button"
+              disabled={!food || isAdding}
+              onClick={handleUpdateAmount}
+              className="flex w-full items-center justify-center transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
+              style={{
+                height: "50px",
+                borderRadius: "10px",
+                backgroundColor: "#000000",
+                color: "#ffffff",
+                fontSize: "14px",
+                fontWeight: 700,
+                letterSpacing: "-0.02em",
+                boxShadow: "0 18px 24px rgba(0, 0, 0, 0.25)",
+              }}
+            >
+              {isAdding ? "수정 중..." : "먹은 양 수정"}
             </button>
           </div>
         )}

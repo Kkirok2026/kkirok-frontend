@@ -44,6 +44,17 @@ export function setMealLogItemExcluded({
   );
 }
 
+export function updateMealLogItemAmount({
+  mealLogId,
+  mealLogItemId,
+  amountG,
+}) {
+  return apiClient.patch(
+    `/meal-logs/${mealLogId}/items/${mealLogItemId}/amount`,
+    { amountG }
+  );
+}
+
 export function getDailySummary(date) {
   return apiClient.get("/home/daily-summary", {
     params: { date },
