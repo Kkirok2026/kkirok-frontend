@@ -71,6 +71,152 @@ function periodLabel(profile) {
   return `${value} month`;
 }
 
+function numberOrNull(value) {
+  if (value === null || value === undefined || value === "") return null;
+
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function formatDisplayNumber(value) {
+  const number = numberOrNull(value);
+  if (number === null) return "-";
+
+  return Number.isInteger(number)
+    ? `${number}`
+    : `${Number(number.toFixed(1))}`;
+}
+
+function clampProgress(value) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(1, Math.max(0, value));
+}
+
+function getTargetPeriodTotalDays(profile) {
+  const value = numberOrNull(getTargetPeriodValue(profile));
+  if (!value) return null;
+
+  const unit = `${getTargetPeriodUnit(profile) ?? "MONTH"}`.toUpperCase();
+  if (unit === "WEEK" || unit === "WEEKS") return value * 7;
+  if (unit === "DAY" || unit === "DAYS") return value;
+  if (unit === "YEAR" || unit === "YEARS") return value * 365;
+
+  return value * 30;
+}
+
+function getRemainingDays(profile) {
+  const remainingDays = numberOrNull(profile?.targetRemainingDays);
+  if (remainingDays !== null) return Math.max(0, Math.round(remainingDays));
+
+  return null;
+}
+
+function getPeriodProgress(profile) {
+  const totalDays = getTargetPeriodTotalDays(profile);
+  const remainingDays = getRemainingDays(profile);
+
+  if (!totalDays || remainingDays === null) return 0;
+  return clampProgress((totalDays - remainingDays) / totalDays);
+}
+
+function getWeightProgress(profile) {
+  const currentWeight = numberOrNull(profile?.weightKg);
+  const targetWeight = numberOrNull(profile?.targetWeightKg);
+
+  if (!currentWeight || !targetWeight) return 0;
+
+  if (currentWeight > targetWeight) {
+    return clampProgress(targetWeight / currentWeight);
+  }
+
+  return clampProgress(currentWeight / targetWeight);
+}
+
+function getRemainingWeightLabel(profile) {
+  const currentWeight = numberOrNull(profile?.weightKg);
+  const targetWeight = numberOrNull(profile?.targetWeightKg);
+
+  if (currentWeight === null || targetWeight === null) return "-";
+
+  const remainingWeight = Math.abs(currentWeight - targetWeight);
+  if (remainingWeight === 0) return "목표 달성";
+
+  return `${formatDisplayNumber(remainingWeight)}kg 남음`;
+}
+
+function GoalSemiArc({ progress, className, color, strokeWidth, d }) {
+  const dash = clampProgress(progress) * 100;
+
+  return (
+    <>
+      <path
+        d={d}
+        fill="none"
+        pathLength="100"
+        stroke="#e8ebf1"
+        strokeLinecap="round"
+        strokeWidth={strokeWidth}
+        className={className}
+      />
+      <path
+        d={d}
+        fill="none"
+        pathLength="100"
+        stroke={color}
+        strokeDasharray={`${dash} 100`}
+        strokeLinecap="round"
+        strokeWidth={strokeWidth}
+        className={className}
+      />
+    </>
+  );
+}
+
+function GoalProgressOverview({ profile }) {
+  const remainingDays = getRemainingDays(profile);
+  const remainingWeightLabel = getRemainingWeightLabel(profile);
+
+  return (
+    <section className="mt-[45px] flex flex-col items-center">
+      <p className="text-[13px] font-bold leading-[19px] text-[#8a8c90]">
+        목표기간 현황
+      </p>
+      <p className="mt-[7px] text-[35px] font-bold leading-[43px] text-[#8f9197]">
+        {remainingDays === null ? "-" : `${remainingDays}일 남음`}
+      </p>
+
+      <div className="relative mt-[2px] h-[176px] w-[305px]">
+        <svg
+          aria-hidden="true"
+          className="absolute left-1/2 top-0 h-[176px] w-[305px] -translate-x-1/2"
+          viewBox="0 0 305 176"
+        >
+          <GoalSemiArc
+            progress={getPeriodProgress(profile)}
+            color="#ffad54"
+            strokeWidth="22"
+            d="M 27 151 A 125 125 0 0 1 278 151"
+          />
+          <GoalSemiArc
+            progress={getWeightProgress(profile)}
+            color="#a8d95d"
+            strokeWidth="28"
+            d="M 74 151 A 78 78 0 0 1 231 151"
+          />
+        </svg>
+
+        <div className="absolute left-0 right-0 top-[105px] text-center">
+          <p className="text-[13px] font-bold leading-[19px] text-[#8a8c90]">
+            몸무게 현황
+          </p>
+          <p className="mt-[4px] text-[26px] font-bold leading-[34px] text-[#8f9197]">
+            {remainingWeightLabel}
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 function StatCard({ label, value }) {
   return (
@@ -125,9 +271,9 @@ export default function ProfilePage() {
       try {
         const meResponse = await getMe();
 
-if (ignore) return;
+        if (ignore) return;
 
-setMe(meResponse);
+        setMe(meResponse);
       } catch (loadError) {
         if (ignore) return;
 
@@ -239,12 +385,14 @@ setMe(meResponse);
           </div>
         </section>
 
-        <section className="mt-[41px] space-y-[14px]">
+        <GoalProgressOverview profile={profile} />
+
+        <section className="mt-[20px] space-y-[14px]">
           <ProfileInfoCard
             iconSrc={PROFILE_INFO_ICONS.targetWeight}
             iconAlt="목표 몸무게"
             title="목표 몸무게"
-            value={valueOrDash(profile?.targetWeightKg, "kg")}
+            value={valueOrDash(profile?.targetWeightKg, " kg")}
           />
 
           <ProfileInfoCard
@@ -255,30 +403,30 @@ setMe(meResponse);
           />
         </section>
 
-        <div className="absolute bottom-[112px] left-[49px] right-[49px] flex justify-between text-[11px] font-light text-[#8a8c90]">
-  <button type="button" onClick={() => setModal("logout")}>
-    로그아웃
-  </button>
+        <div className="mt-[96px] flex justify-between text-[11px] font-light text-[#8a8c90]">
+          <button type="button" onClick={() => setModal("logout")}>
+            로그아웃
+          </button>
 
-  <button type="button" onClick={() => navigate("/profile/delete")}>
-    회원탈퇴
-  </button>
-</div>
+          <button type="button" onClick={() => navigate("/profile/delete")}>
+            회원탈퇴
+          </button>
+        </div>
       </div>
 
       <BottomNav />
 
       <Modal
-  open={modal === "logout"}
-  title="로그아웃 하시겠습니까?"
-  confirmText={isSubmitting ? "처리 중..." : "로그아웃"}
-  onConfirm={handleLogout}
-  onCancel={() => setModal("")}
-  overlayClassName="bg-black/90"
-  confirmVariant="black"
-  confirmClassName="!w-[255px] !h-[42.63px] !rounded-[10px] !bg-black !text-white"
-  confirmTextClassName="block w-[49px] h-[16px] text-[13px] leading-[16px] font-bold text-white"
-/>
+        open={modal === "logout"}
+        title="로그아웃 하시겠습니까?"
+        confirmText={isSubmitting ? "처리 중..." : "로그아웃"}
+        onConfirm={handleLogout}
+        onCancel={() => setModal("")}
+        overlayClassName="bg-black/90"
+        confirmVariant="black"
+        confirmClassName="!w-[255px] !h-[42.63px] !rounded-[10px] !bg-black !text-white"
+        confirmTextClassName="block w-[49px] h-[16px] text-[13px] leading-[16px] font-bold text-white"
+      />
 
     </MobileLayout>
   );
