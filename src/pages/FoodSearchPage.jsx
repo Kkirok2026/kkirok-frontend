@@ -211,6 +211,9 @@ export default function FoodSearchPage() {
 
   const [inputValue, setInputValue] = useState(initialQuery);
   const [query, setQuery] = useState(initialQuery);
+  const [hasResultMode, setHasResultMode] = useState(
+    initialQuery.trim().length > 0
+  );
   const [isComposing, setIsComposing] = useState(false);
   const [foods, setFoods] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -264,6 +267,12 @@ export default function FoodSearchPage() {
     };
   }, [trimmedQuery]);
 
+  useEffect(() => {
+    if (hasSearched) {
+      setHasResultMode(true);
+    }
+  }, [hasSearched]);
+
   const handleBack = () => {
     if (window.history.length > 1) {
       navigate(-1);
@@ -275,7 +284,7 @@ export default function FoodSearchPage() {
   };
 
   const content = useMemo(() => {
-    if (!hasSearched) {
+    if (!hasResultMode) {
       return (
         <EmptySearchView
           inputValue={inputValue}
@@ -308,7 +317,13 @@ export default function FoodSearchPage() {
           </p>
         )}
 
-        {!isLoading && !error && foods.length > 0 && (
+        {!hasSearched && (
+          <p className="mt-[30px] text-[13px] font-light text-[#8a8c90]">
+            검색어를 입력해 주세요.
+          </p>
+        )}
+
+        {hasSearched && !isLoading && !error && foods.length > 0 && (
           <ResultList
             query={query}
             foods={foods}
@@ -316,7 +331,7 @@ export default function FoodSearchPage() {
           />
         )}
 
-        {!isLoading && !error && foods.length === 0 && (
+        {hasSearched && !isLoading && !error && foods.length === 0 && (
           <NoResultView query={query} searchParams={searchParams} />
         )}
       </div>
@@ -324,6 +339,7 @@ export default function FoodSearchPage() {
   }, [
     error,
     foods,
+    hasResultMode,
     hasSearched,
     inputValue,
     isLoading,
@@ -333,7 +349,7 @@ export default function FoodSearchPage() {
 
   return (
     <MobileLayout>
-      {!hasSearched && (
+      {!hasResultMode && (
         <PageHeader
           eyebrow="Recommend Meal"
           title="77ㅣ록"
