@@ -3,7 +3,7 @@ export default function BottomNavButtons({
   onNext,
   prevText = "이전",
   nextText = "다음",
-  bottomClassName = "bottom-[72px]",
+  bottomClassName = "bottom-[106px]",
   nextDisabled = false,
 }) {
   return (

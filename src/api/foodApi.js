@@ -13,3 +13,7 @@ export function getFood(foodId) {
 export function createCustomFood(food) {
   return apiClient.post("/foods/custom", food);
 }
+
+export function updateFoodCalories(foodId, calories) {
+  return apiClient.patch(`/foods/${foodId}/calories`, calories);
+}

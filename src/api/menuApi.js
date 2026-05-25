@@ -31,3 +31,9 @@ export function compareMenus({
     },
   });
 }
+
+export function updateMenuOptionCalories(optionId, caloriesKcal) {
+  return apiClient.patch(`/menus/options/${optionId}/calories`, {
+    caloriesKcal,
+  });
+}

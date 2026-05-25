@@ -1,3 +1,5 @@
+import BottomNav from "./BottomNav";
+
 export default function MobileLayout({ children, className = "" }) {
   return (
     <div className="w-full h-dvh bg-white flex justify-center overflow-hidden">
@@ -8,6 +10,7 @@ export default function MobileLayout({ children, className = "" }) {
         ].join(" ")}
       >
         {children}
+        <BottomNav />
       </div>
     </div>
   );

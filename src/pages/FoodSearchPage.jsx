@@ -3,7 +3,6 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import MobileLayout from "../components/layout/MobileLayout";
 import PageHeader from "../components/layout/PageHeader";
-import BottomNav from "../components/layout/BottomNav";
 import { searchFoods } from "../api/foodApi";
 
 import SearchIcon from "../assets/icons/Search.svg";
@@ -359,7 +358,6 @@ export default function FoodSearchPage() {
 
       {content}
 
-      <BottomNav />
     </MobileLayout>
   );
 }

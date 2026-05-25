@@ -313,6 +313,8 @@ export default function CreateMealPage() {
   const [proteinG, setProteinG] = useState("");
   const [fatG, setFatG] = useState("");
   const [amountG, setAmountG] = useState("");
+  const [basisCaloriesKcal, setBasisCaloriesKcal] = useState("");
+  const [totalCaloriesKcal, setTotalCaloriesKcal] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMealModalOpen, setIsMealModalOpen] = useState(false);
@@ -377,11 +379,19 @@ export default function CreateMealPage() {
     setError("");
 
     try {
-      const servingAmount = toOptionalNumber(amountG);
+      const totalWeight = toOptionalNumber(amountG);
+      const basisCalories = toOptionalNumber(basisCaloriesKcal);
+      const totalCalories = toOptionalNumber(totalCaloriesKcal);
       const food = await createCustomFood({
         foodName: initialName.trim() || "직접 입력 메뉴",
-        amountG: servingAmount ?? undefined,
-        caloriesKcal: calculatedCalories ?? undefined,
+        amountG: 100,
+        totalWeightG: totalWeight ?? undefined,
+        basisCaloriesKcal: basisCalories ?? undefined,
+        totalCaloriesKcal: totalCalories ?? undefined,
+        caloriesKcal:
+          basisCalories === null && totalCalories === null
+            ? calculatedCalories ?? undefined
+            : undefined,
         carbG: toNumber(carbG, 0),
         proteinG: toNumber(proteinG, 0),
         fatG: toNumber(fatG, 0),
@@ -405,7 +415,7 @@ export default function CreateMealPage() {
       await addFoodItems(targetMealLogId, [
         {
           foodId,
-          amountG: servingAmount ?? undefined,
+          amountG: totalWeight ?? undefined,
         },
       ]);
 
@@ -524,7 +534,25 @@ export default function CreateMealPage() {
             />
 
             <MealInput
-              placeholder="1회 제공량/1인분 (g)"
+              placeholder="100g당 칼로리 (kcal)"
+              value={basisCaloriesKcal}
+              onChange={(value) => {
+                setBasisCaloriesKcal(cleanDecimal(value));
+                setError("");
+              }}
+            />
+
+            <MealInput
+              placeholder="식품 중량별 칼로리 (kcal)"
+              value={totalCaloriesKcal}
+              onChange={(value) => {
+                setTotalCaloriesKcal(cleanDecimal(value));
+                setError("");
+              }}
+            />
+
+            <MealInput
+              placeholder="총 식품 중량 (g)"
               value={amountG}
               onChange={(value) => {
                 setAmountG(cleanDecimal(value));
@@ -577,7 +605,7 @@ export default function CreateMealPage() {
       <BottomButton
         onClick={step === "form" ? handleNext : handleAddButton}
         disabled={isSubmitting}
-        bottomClassName="bottom-[70px]"
+        bottomClassName="bottom-[106px]"
         className="!left-[50px] !right-[50px] !h-[50px] !rounded-[10px] !text-[13px] !font-bold"
       >
         {step === "form" ? "다음" : isSubmitting ? "추가 중..." : "식단에 추가"}

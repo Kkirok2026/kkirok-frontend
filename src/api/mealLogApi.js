@@ -55,6 +55,12 @@ export function updateMealLogItemAmount({
   );
 }
 
+export function updateMealLogCalories(mealLogId, caloriesKcal) {
+  return apiClient.patch(`/meal-logs/${mealLogId}/calories`, {
+    caloriesKcal,
+  });
+}
+
 export function getDailySummary(date) {
   return apiClient.get("/home/daily-summary", {
     params: { date },

@@ -9,7 +9,7 @@ import {
 import MobileLayout from "../components/layout/MobileLayout";
 import KkirokLogo from "../components/common/KkirokLogo";
 
-import { getFood } from "../api/foodApi";
+import { getFood, updateFoodCalories } from "../api/foodApi";
 import {
   addFoodItems,
   createMealLog,
@@ -174,13 +174,32 @@ function toOptionalPositiveNumber(value) {
   return Number.isFinite(number) && number > 0 ? number : NaN;
 }
 
+function cleanDecimal(value) {
+  const onlyNumber = `${value ?? ""}`.replace(/[^\d.]/g, "");
+  const [head, ...tail] = onlyNumber.split(".");
+
+  if (tail.length === 0) return head;
+  return `${head}.${tail.join("")}`;
+}
+
 function formatGramValue(value) {
   const number = Number(value);
   if (!Number.isFinite(number) || number <= 0) return "-";
   return `${toRounded(number)}g`;
 }
 
-function WeightInfoRow({ label, amount, calories }) {
+function WeightInfoRow({
+  label,
+  amount,
+  calories,
+  isEditing = false,
+  draftValue = "",
+  onStartEdit,
+  onChangeDraft,
+  onSave,
+  onCancel,
+  disabled = false,
+}) {
   return (
     <div className="flex items-center justify-between rounded-[8px] bg-[#f8f8f8] px-[12px] py-[10px]">
       <div>
@@ -191,9 +210,39 @@ function WeightInfoRow({ label, amount, calories }) {
           {formatGramValue(amount)}
         </p>
       </div>
-      <p className="text-[12px] font-bold leading-none text-[#69a80f] tracking-[-0.02em]">
-        {toRounded(calories)} kcal
-      </p>
+      {isEditing ? (
+        <div className="flex items-center gap-[3px]">
+          <input
+            type="text"
+            inputMode="decimal"
+            value={draftValue}
+            onChange={(event) => onChangeDraft(cleanDecimal(event.target.value))}
+            onBlur={onSave}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur();
+              }
+              if (event.key === "Escape") {
+                onCancel();
+              }
+            }}
+            autoFocus
+            className="h-[18px] w-[50px] bg-transparent text-right text-[12px] font-bold leading-none text-[#69a80f] outline-none tracking-[-0.02em]"
+          />
+          <span className="text-[12px] font-bold leading-none text-[#69a80f] tracking-[-0.02em]">
+            kcal
+          </span>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={onStartEdit}
+          disabled={disabled}
+          className="text-[12px] font-bold leading-none text-[#69a80f] tracking-[-0.02em] disabled:cursor-default"
+        >
+          {toRounded(calories)} kcal
+        </button>
+      )}
     </div>
   );
 }
@@ -353,6 +402,8 @@ export default function FoodDetailPage() {
     location.state?.food?.amountG ? String(location.state.food.amountG) : ""
   );
   const [amountMessage, setAmountMessage] = useState("");
+  const [editingCalorieKey, setEditingCalorieKey] = useState("");
+  const [calorieDraft, setCalorieDraft] = useState("");
   const [selectedMealType, setSelectedMealType] = useState(
     queryMealType || "DINNER"
   );
@@ -468,6 +519,61 @@ export default function FoodDetailPage() {
       "energy",
     ]);
   }, [flatFoodData]);
+
+  const beginCalorieEdit = (key, value) => {
+    if (!hasValidFoodId) return;
+    const number = Number(value);
+    setEditingCalorieKey(key);
+    setCalorieDraft(Number.isFinite(number) ? `${toRounded(number)}` : "");
+    setError("");
+  };
+
+  const cancelCalorieEdit = () => {
+    setEditingCalorieKey("");
+    setCalorieDraft("");
+  };
+
+  const saveCalorieEdit = async () => {
+    if (!editingCalorieKey || !hasValidFoodId || isAdding) return;
+
+    const value = Number(calorieDraft);
+    if (!Number.isFinite(value) || value < 0) {
+      setError("칼로리는 0 이상의 숫자로 입력해 주세요.");
+      cancelCalorieEdit();
+      return;
+    }
+
+    setIsAdding(true);
+    setError("");
+
+    try {
+      const response = await updateFoodCalories(numericFoodId, {
+        basisCaloriesKcal:
+          editingCalorieKey === "basis" ? value : undefined,
+        totalCaloriesKcal:
+          editingCalorieKey === "total" ? value : undefined,
+      });
+
+      setFood((prev) => ({
+        ...prev,
+        ...response,
+        amountG: prev?.amountG,
+        nutrients:
+          isOpenedFromMealDetail && prev?.nutrients
+            ? prev.nutrients
+            : response.nutrients,
+      }));
+    } catch (updateError) {
+      if (updateError.status === 401) {
+        navigate("/login", { replace: true });
+        return;
+      }
+      setError(updateError.message || "칼로리를 수정하지 못했습니다.");
+    } finally {
+      setIsAdding(false);
+      cancelCalorieEdit();
+    }
+  };
 
   const addFoodToMeal = async (targetMealType) => {
     if (!hasValidFoodId || isAdding) return;
@@ -659,11 +765,29 @@ export default function FoodDetailPage() {
                   label="영양성분함량 기준량"
                   amount={food?.nutritionBasisAmountG ?? food?.defaultServingG}
                   calories={basisNutrients.caloriesKcal}
+                  isEditing={editingCalorieKey === "basis"}
+                  draftValue={calorieDraft}
+                  onStartEdit={() =>
+                    beginCalorieEdit("basis", basisNutrients.caloriesKcal)
+                  }
+                  onChangeDraft={setCalorieDraft}
+                  onSave={saveCalorieEdit}
+                  onCancel={cancelCalorieEdit}
+                  disabled={!hasValidFoodId || isAdding}
                 />
                 <WeightInfoRow
                   label="총 식품 중량"
                   amount={food?.totalWeightG ?? food?.defaultServingG}
                   calories={totalWeightNutrients.caloriesKcal}
+                  isEditing={editingCalorieKey === "total"}
+                  draftValue={calorieDraft}
+                  onStartEdit={() =>
+                    beginCalorieEdit("total", totalWeightNutrients.caloriesKcal)
+                  }
+                  onChangeDraft={setCalorieDraft}
+                  onSave={saveCalorieEdit}
+                  onCancel={cancelCalorieEdit}
+                  disabled={!hasValidFoodId || isAdding}
                 />
               </div>
 
@@ -720,7 +844,7 @@ export default function FoodDetailPage() {
           <div
             className="absolute left-1/2 z-30 -translate-x-1/2"
             style={{
-              bottom: "74px",
+              bottom: "106px",
               width: "300px",
             }}
           >
@@ -749,7 +873,7 @@ export default function FoodDetailPage() {
           <div
             className="absolute left-1/2 z-30 -translate-x-1/2"
             style={{
-              bottom: "74px",
+              bottom: "106px",
               width: "300px",
             }}
           >

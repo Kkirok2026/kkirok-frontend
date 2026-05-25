@@ -3,9 +3,9 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import MobileLayout from "../components/layout/MobileLayout";
 import PageHeader from "../components/layout/PageHeader";
-import BottomNav from "../components/layout/BottomNav";
+import EditableKcalText from "../components/common/EditableKcalText";
 import { addMenuOption } from "../api/mealLogApi";
-import { compareMenus } from "../api/menuApi";
+import { compareMenus, updateMenuOptionCalories } from "../api/menuApi";
 import { getMe } from "../api/userApi";
 import {
   formatDateKey,
@@ -103,7 +103,7 @@ function CategoryTabs({ options, activeOptionId, onSelect }) {
   );
 }
 
-function MenuCard({ item, selected, onSelect }) {
+function MenuCard({ item, selected, onSelect, onSaveCalories }) {
   const nutrients = item?.nutrients || {};
   const lines = optionLines(item?.optionName);
   const warnings = item?.allergyWarnings ?? [];
@@ -140,7 +140,11 @@ function MenuCard({ item, selected, onSelect }) {
           className="text-[22px] font-extrabold leading-none tracking-[-0.03em]"
           style={{ color: COLORS.green }}
         >
-          {toRounded(nutrients.caloriesKcal)} kcal
+          <EditableKcalText
+            value={nutrients.caloriesKcal}
+            onSave={(nextCalories) => onSaveCalories(item, nextCalories)}
+            className="text-[22px] font-extrabold leading-none tracking-[-0.03em] text-[#6daa0f]"
+          />
         </p>
 
         <div className="mt-[15px] space-y-[7px] text-[10px] font-light text-[#6f7075]">
@@ -172,6 +176,7 @@ function DiningSection({
   activeOptionId,
   selectedOptionId,
   onSelect,
+  onSaveCalories,
 }) {
   if (options.length === 0) return null;
 
@@ -190,6 +195,7 @@ function DiningSection({
         item={activeOption}
         selected={activeOption.optionId === selectedOptionId}
         onSelect={onSelect}
+        onSaveCalories={onSaveCalories}
       />
     </section>
   );
@@ -390,6 +396,40 @@ export default function UniversityMealPage() {
     setSelectedOptionId(option.optionId);
   };
 
+  const handleSaveOptionCalories = async (option, caloriesKcal) => {
+    if (!option?.optionId) return;
+
+    try {
+      const updated = await updateMenuOptionCalories(option.optionId, caloriesKcal);
+      setDailyMenu((current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          diningPlaces: current.diningPlaces.map((place) => ({
+            ...place,
+            options: place.options.map((item) =>
+              item.optionId === option.optionId
+                ? {
+                    ...item,
+                    nutrients: updated?.nutrients ?? {
+                      ...item.nutrients,
+                      caloriesKcal,
+                    },
+                  }
+                : item
+            ),
+          })),
+        };
+      });
+    } catch (updateError) {
+      if (updateError.status === 401) {
+        navigate("/login", { replace: true });
+        return;
+      }
+      setError(updateError.message || "메뉴 칼로리를 수정하지 못했습니다.");
+    }
+  };
+
   const handleAddMenu = async () => {
     if (!selectedOption?.optionId || isAdding) return;
 
@@ -466,6 +506,7 @@ export default function UniversityMealPage() {
                 activeOptionId={activeOptionIds[type]}
                 selectedOptionId={selectedOptionId}
                 onSelect={handleSelectOption}
+                onSaveCalories={handleSaveOptionCalories}
               />
             </div>
           ))
@@ -534,7 +575,6 @@ export default function UniversityMealPage() {
   </button>
 </div>
 
-      <BottomNav />
     </MobileLayout>
   );
 }

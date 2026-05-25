@@ -1,11 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import MobileLayout from "../components/layout/MobileLayout";
 import KkirokLogo from "../components/common/KkirokLogo";
-import BottomNav from "../components/layout/BottomNav";
 import CalendarModal from "../components/common/CalendarModal";
-import { getDailySummary, getMealLogsByDate } from "../api/mealLogApi";
+import EditableKcalText from "../components/common/EditableKcalText";
+import {
+  getDailySummary,
+  getMealLogsByDate,
+  updateMealLogCalories,
+} from "../api/mealLogApi";
 import {
   MEAL_KEY_TO_TYPE,
   emptyMeals,
@@ -352,7 +356,7 @@ function DonutChart({ data }) {
   );
 }
 
-function MealCard({ meal, onClick }) {
+function MealCard({ meal, onClick, onSaveCalories }) {
   const hasData = Boolean(
     meal?.mealLogId ||
       Number(meal?.kcal) > 0 ||
@@ -364,9 +368,15 @@ function MealCard({ meal, onClick }) {
   );
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          onClick();
+        }
+      }}
       style={{
         border: "1px solid #B9ADAF",
       }}
@@ -387,9 +397,12 @@ function MealCard({ meal, onClick }) {
 
       {hasData && (
         <div className="absolute left-[16px] right-[16px] top-[48px]">
-          <p className="text-[17px] leading-none font-bold text-[#6da60f] tracking-[-0.04em]">
-            {meal.kcal ?? 0} kcal
-          </p>
+          <EditableKcalText
+            value={meal.kcal ?? 0}
+            onSave={onSaveCalories}
+            disabled={!meal?.mealLogId}
+            className="text-[17px] leading-none font-bold text-[#6da60f] tracking-[-0.04em]"
+          />
 
           <div className="mt-[6px] h-[1px] w-[74px] bg-[#e2e2e2]" />
 
@@ -406,11 +419,11 @@ function MealCard({ meal, onClick }) {
           </div>
         </div>
       )}
-    </button>
+    </div>
   );
 }
 
-function MealRecords({ dailyData, selectedDateKey }) {
+function MealRecords({ dailyData, selectedDateKey, onRefreshDailyData }) {
   const navigate = useNavigate();
 
   const meals = dailyData?.meals ?? emptyMeals();
@@ -427,6 +440,15 @@ function MealRecords({ dailyData, selectedDateKey }) {
           <MealCard
           key={mealKey}
           meal={meal}
+          onSaveCalories={async (caloriesKcal) => {
+            if (!meal.mealLogId) return;
+            try {
+              await updateMealLogCalories(meal.mealLogId, caloriesKcal);
+              await onRefreshDailyData();
+            } catch {
+              // Home has no inline error area inside the card; keep the previous value.
+            }
+          }}
           onClick={() => {
             if (meal.mealLogId) {
               navigate(`/meal-details/${mealKey}`, {
@@ -481,6 +503,30 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const loadDailyData = useCallback(async () => {
+    setIsLoading(true);
+    setError("");
+
+    try {
+      const [summary, mealLogs] = await Promise.all([
+        getDailySummary(selectedKey),
+        getMealLogsByDate(selectedKey),
+      ]);
+
+      setDailyData(toDailyDisplay(summary, mealLogs));
+    } catch (loadError) {
+      if (loadError.status === 401) {
+        navigate("/login", { replace: true });
+        return;
+      }
+
+      setError(loadError.message || "홈 데이터를 불러오지 못했습니다.");
+      setDailyData(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [navigate, selectedKey]);
+
   const updateSelectedDate = (date, options = {}) => {
     setSelectedDate(date);
 
@@ -505,40 +551,14 @@ export default function HomePage() {
   useEffect(() => {
     let ignore = false;
 
-    async function loadDailyData() {
-      setIsLoading(true);
-      setError("");
-
-      try {
-        const [summary, mealLogs] = await Promise.all([
-          getDailySummary(selectedKey),
-          getMealLogsByDate(selectedKey),
-        ]);
-
-        if (ignore) return;
-
-        setDailyData(toDailyDisplay(summary, mealLogs));
-      } catch (loadError) {
-        if (ignore) return;
-
-        if (loadError.status === 401) {
-          navigate("/login", { replace: true });
-          return;
-        }
-
-        setError(loadError.message || "홈 데이터를 불러오지 못했습니다.");
-        setDailyData(null);
-      } finally {
-        if (!ignore) setIsLoading(false);
-      }
-    }
-
-    loadDailyData();
+    loadDailyData().catch(() => {
+      if (!ignore) setIsLoading(false);
+    });
 
     return () => {
       ignore = true;
     };
-  }, [navigate, selectedKey]);
+  }, [loadDailyData]);
 
   const handleChangeMonth = (offset) => {
     updateSelectedDate(addMonths(selectedDate, offset));
@@ -587,10 +607,12 @@ export default function HomePage() {
 
         <DonutChart data={dailyData} />
 
-        <MealRecords dailyData={dailyData} selectedDateKey={selectedKey} />
+        <MealRecords
+          dailyData={dailyData}
+          selectedDateKey={selectedKey}
+          onRefreshDailyData={loadDailyData}
+        />
       </div>
-
-      <BottomNav />
 
       <CalendarModal
         open={isCalendarOpen}

@@ -4,7 +4,7 @@ export default function BottomButton({
   type = "button",
   disabled = false,
   className = "",
-  bottomClassName = "bottom-[72px]",
+  bottomClassName = "bottom-[106px]",
 }) {
   return (
     <button

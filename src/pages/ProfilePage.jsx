@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import MobileLayout from "../components/layout/MobileLayout";
-import BottomNav from "../components/layout/BottomNav";
 import Modal from "../components/common/Modal";
 import { clearAccessToken } from "../api/client";
 import { logout } from "../api/authApi";
@@ -413,8 +412,6 @@ export default function ProfilePage() {
           </button>
         </div>
       </div>
-
-      <BottomNav />
 
       <Modal
         open={modal === "logout"}

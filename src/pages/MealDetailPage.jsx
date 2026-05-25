@@ -3,7 +3,12 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import MobileLayout from "../components/layout/MobileLayout";
 import KkirokLogo from "../components/common/KkirokLogo";
-import { getMealLog, setMealLogItemExcluded } from "../api/mealLogApi";
+import EditableKcalText from "../components/common/EditableKcalText";
+import {
+  getMealLog,
+  setMealLogItemExcluded,
+  updateMealLogCalories,
+} from "../api/mealLogApi";
 import {
   MEAL_KEY_TO_TYPE,
   MEAL_LABELS as API_MEAL_LABELS,
@@ -51,7 +56,14 @@ function fallbackMeal(mealKey) {
   return emptyMeal(mealKey);
 }
 
-function NutritionSummaryBox({ label, value, unit = "g", wide = false }) {
+function NutritionSummaryBox({
+  label,
+  value,
+  unit = "g",
+  wide = false,
+  editable = false,
+  onSave,
+}) {
   return (
     <div
       className={[
@@ -66,9 +78,17 @@ function NutritionSummaryBox({ label, value, unit = "g", wide = false }) {
         {label}
       </span>
 
-      <span className="whitespace-nowrap text-[12px] font-bold text-[#69a80f] tracking-[-0.03em]">
-        {value} {unit}
-      </span>
+      {editable ? (
+        <EditableKcalText
+          value={value}
+          onSave={onSave}
+          className="whitespace-nowrap text-[12px] font-bold text-[#69a80f] tracking-[-0.03em]"
+        />
+      ) : (
+        <span className="whitespace-nowrap text-[12px] font-bold text-[#69a80f] tracking-[-0.03em]">
+          {value} {unit}
+        </span>
+      )}
     </div>
   );
 }
@@ -456,6 +476,17 @@ export default function MealDetailPage() {
     }
   };
 
+  const handleSaveMealCalories = async (caloriesKcal) => {
+    if (!meal.mealLogId) return;
+
+    try {
+      const response = await updateMealLogCalories(meal.mealLogId, caloriesKcal);
+      setMeal(toMealDisplay(response, mealKey));
+    } catch (updateError) {
+      setError(updateError.message || "식단 칼로리를 수정하지 못했습니다.");
+    }
+  };
+
   return (
     <MobileLayout>
       <button
@@ -525,6 +556,8 @@ export default function MealDetailPage() {
             value={meal.kcal ?? 0}
             unit="kcal"
             wide
+            editable={Boolean(meal.mealLogId)}
+            onSave={handleSaveMealCalories}
           />
 
           <div className="mt-[12px] grid grid-cols-3 gap-[8px]">
