@@ -23,6 +23,10 @@ body {
     sans-serif;
 }
 
+body:has(.iphone-preview-shell) {
+  overflow: hidden;
+}
+
 button,
 input {
   font: inherit;
@@ -49,4 +53,109 @@ input::placeholder {
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+html[data-demo-device="iphone-17-pro"],
+html[data-demo-device="iphone-17-pro"] body,
+html[data-demo-device="iphone-17-pro"] * {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+html[data-demo-device="iphone-17-pro"]::-webkit-scrollbar,
+html[data-demo-device="iphone-17-pro"] body::-webkit-scrollbar,
+html[data-demo-device="iphone-17-pro"] *::-webkit-scrollbar {
+  display: none;
+}
+
+.iphone-preview-shell {
+  position: relative;
+  width: min(100%, 430px, calc((100dvh - 56px) * 430 / 902));
+  aspect-ratio: 430 / 902;
+  filter: drop-shadow(0 28px 58px rgba(39, 41, 50, 0.22));
+}
+
+.iphone-preview-bezel {
+  position: absolute;
+  inset: 0;
+  padding: 14px;
+  border-radius: 48px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.22), transparent 22%),
+    linear-gradient(315deg, rgba(255, 255, 255, 0.13), transparent 24%),
+    #08090b;
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, 0.08),
+    inset 0 -10px 22px rgba(255, 255, 255, 0.05);
+}
+
+.iphone-preview-screen {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 36px;
+  background: #ffffff;
+  scrollbar-width: none;
+}
+
+.iphone-preview-screen::-webkit-scrollbar {
+  display: none;
+}
+
+.iphone-preview-island {
+  position: absolute;
+  z-index: 2;
+  top: 28px;
+  left: 50%;
+  width: 126px;
+  height: 36px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: #050506;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.1),
+    0 2px 5px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.iphone-preview-side-button {
+  position: absolute;
+  z-index: 0;
+  width: 4px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #555b63, #17191d);
+}
+
+.iphone-preview-side-button-left {
+  left: -3px;
+  top: 142px;
+  height: 92px;
+}
+
+.iphone-preview-side-button-right {
+  right: -3px;
+  top: 200px;
+  height: 118px;
+}
+
+@media (max-width: 540px) {
+  .iphone-preview-shell {
+    width: min(100%, 390px);
+  }
+
+  .iphone-preview-bezel {
+    padding: 18px;
+    border-radius: 48px;
+  }
+
+  .iphone-preview-screen {
+    border-radius: 32px;
+  }
+
+  .iphone-preview-island {
+    top: 28px;
+    width: 110px;
+    height: 32px;
+  }
 }

@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useSearchParams } from "react-router-dom";
 
 import StartPage from "../pages/StartPage";
 import LoginPage from "../pages/LoginPage";
@@ -20,12 +20,23 @@ import ProfileEditPage from "../pages/ProfileEditPage";
 import ProfileGoalEditPage from "../pages/ProfileGoalEditPage";
 import DeleteAccountPage from "../pages/DeleteAccountPage";
 import CreateMealPage from "../pages/CreateMealPage";
+import IphonePreviewPage from "../pages/IphonePreviewPage";
 
+function RootRoute() {
+  const [searchParams] = useSearchParams();
+
+  if (searchParams.get("demoDevice") === "iphone-17-pro") {
+    return <StartPage />;
+  }
+
+  return <IphonePreviewPage />;
+}
 
 export default function AppRouter() {
   return (
     <Routes>
-      <Route path="/" element={<StartPage />} />
+      <Route path="/" element={<RootRoute />} />
+      <Route path="/start" element={<StartPage />} />
       <Route path="/login" element={<LoginPage />} />
 
       <Route path="/signup" element={<SignupVerifyPage />} />
@@ -47,6 +58,7 @@ export default function AppRouter() {
       <Route path="/profile/edit/goal" element={<ProfileGoalEditPage />} />
       <Route path="/profile/delete" element={<DeleteAccountPage />} />
       <Route path="/create-meal" element={<CreateMealPage />} />
+      <Route path="/preview" element={<IphonePreviewPage />} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

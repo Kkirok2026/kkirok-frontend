@@ -5,6 +5,12 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App.jsx";
 import "./index.css";
 
+const demoDevice = new URLSearchParams(window.location.search).get("demoDevice");
+
+if (demoDevice) {
+  document.documentElement.dataset.demoDevice = demoDevice;
+}
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>

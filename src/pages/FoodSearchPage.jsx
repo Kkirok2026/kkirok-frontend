@@ -127,7 +127,7 @@ function SearchHeader({
   onBack,
 }) {
   return (
-    <div className="mt-[12px] flex items-center gap-[14px]">
+    <div className="mt-[12px] flex w-full items-center gap-[14px]">
       <button
         type="button"
         onClick={onBack}
@@ -137,7 +137,7 @@ function SearchHeader({
         ‹
       </button>
 
-      <div className="w-[270px] shrink-0">
+      <div className="min-w-0 flex-1">
         <SearchBox
           value={inputValue}
           onValueChange={onValueChange}
